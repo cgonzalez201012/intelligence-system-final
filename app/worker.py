@@ -19,6 +19,7 @@ Dos redes de seguridad mas contra el mismo problema:
 """
 
 import asyncio
+import re
 import logging
 import signal
 import time
@@ -41,7 +42,7 @@ from app.schemas import AccionesDelJob, AprobacionPendiente, MensajeDeCola, Resu
 from app.settings import Ajustes
 from orquestador.config import Configuracion
 from orquestador.errores import ErrorConfiguracion
-from orquestador.state import estado_inicial
+from orquestador.state import FragmentoCitado, estado_inicial
 from orquestador.trazas import ContadorDeUso
 
 logger = logging.getLogger("worker")
@@ -91,6 +92,23 @@ def _config_de_ejecucion(job_id: str, contador: ContadorDeUso, servicios: Servic
     }
 
 
+def fuentes_citadas(politicas: list[FragmentoCitado], respuesta: str) -> list[str]:
+    """Politicas del RAG que la respuesta realmente nombra (trazabilidad de cada afirmacion).
+
+    Si la respuesta copia la cita completa ("GD-POL-001 (01-politica.md, pág. 1)") se lista esa pagina. Si solo
+    nombra el codigo, se lista el documento ("GD-POL-001 (01-politica.md)") sin inventar una pagina que no se cito.
+    """
+    citadas: set[str] = set()
+    for fragmento in politicas:
+        if fragmento.cita in respuesta:
+            citadas.add(fragmento.cita)
+        elif re.search(rf"(?<![\w-]){re.escape(fragmento.codigo)}(?![\w-])", respuesta):
+            citadas.add(f"{fragmento.codigo} ({fragmento.fuente})")
+    # una cita exacta ya cubre al mismo documento nombrado solo por codigo
+    exactas = {c.partition(" (")[0] for c in citadas if ", pág." in c}
+    return sorted(c for c in citadas if ", pág." in c or c.partition(" (")[0] not in exactas)
+
+
 def resultado_desde_estado(valores: dict[str, Any]) -> ResultadoTarea:
     """Arma el resultado de la API a partir del estado final del grafo."""
     agentes: list[str] = []
@@ -99,9 +117,7 @@ def resultado_desde_estado(valores: dict[str, Any]) -> ResultadoTarea:
             agentes.append(contribucion.agente)
     respuesta = valores.get("respuesta_final") or ""
     hallazgos = valores.get("hallazgos")
-    fuentes = (  # solo las politicas que la respuesta realmente nombra: la trazabilidad de cada afirmacion
-        sorted({p.cita for p in hallazgos.politicas if p.codigo in respuesta}) if hallazgos is not None else []
-    )
+    fuentes = fuentes_citadas(hallazgos.politicas if hallazgos is not None else [], respuesta)
     return ResultadoTarea(
         estado_final=valores.get("estado_final") or "desconocido",
         respuesta=respuesta,

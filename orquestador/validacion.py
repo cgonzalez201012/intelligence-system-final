@@ -167,11 +167,13 @@ def validar_redactor(hallazgos: Hallazgos | None, analisis: Analisis | None, inf
             f"{', '.join(sorted(sin_respaldo))}."
         )
 
-    if hallazgos is not None and analisis is not None and not hallazgos.fuera_de_alcance:
+    if hallazgos is not None and not hallazgos.fuera_de_alcance:
+        # Todo incidente detallado tiene que aparecer en el informe, haya o no pasado por el analista: si el
+        # supervisor saltea al analista, el informe igual se valida contra lo que el investigador recolecto.
         faltantes = {i.id for i in hallazgos.incidentes_detallados()} - citados
         if faltantes:
-            problemas.append(f"El informe no cubre estos incidentes analizados: {', '.join(sorted(faltantes))}.")
-        if analisis.ranking and analisis.ranking[0] not in citados:
+            problemas.append(f"El informe no cubre estos incidentes recolectados: {', '.join(sorted(faltantes))}.")
+        if analisis is not None and analisis.ranking and analisis.ranking[0] not in citados:
             problemas.append(f"El informe no nombra el incidente de mayor prioridad ({analisis.ranking[0]}).")
     return problemas
 

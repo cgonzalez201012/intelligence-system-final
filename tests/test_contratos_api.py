@@ -88,7 +88,7 @@ def test_el_resultado_lista_solo_las_politicas_que_la_respuesta_cita():
     resultado = resultado_desde_estado(
         {"estado_final": "completado", "respuesta_final": "Según GD-POL-001 el plazo es 4 h.", "hallazgos": hallazgos}
     )
-    assert resultado.fuentes_citadas == ["GD-POL-001 (d.md, pág. 1)"]
+    assert resultado.fuentes_citadas == ["GD-POL-001 (d.md)"]  # nombró solo el código: no se inventa la página
 
 
 def test_sin_hallazgos_no_hay_fuentes():
@@ -99,3 +99,23 @@ def test_el_openapi_publicado_en_docs_coincide_con_el_codigo():
     from scripts.exportar_openapi import RUTA, contrato
 
     assert RUTA.read_text(encoding="utf-8") == contrato(), "corré `python scripts/exportar_openapi.py`"
+
+
+def _frag(codigo: str, fuente: str, pagina: int) -> FragmentoCitado:
+    return FragmentoCitado(
+        chunk_id=f"{fuente}#{pagina}", documento_id=fuente, codigo=codigo, fuente=fuente, pagina=pagina,
+        cita=f"{codigo} ({fuente}, pág. {pagina})", texto="t",
+    )
+
+
+def test_las_fuentes_citadas_listan_la_pagina_solo_si_la_respuesta_la_cito():
+    from app.worker import fuentes_citadas
+
+    politicas = [_frag("GD-POL-001", "01.md", 1), _frag("GD-POL-001", "01.md", 3), _frag("GD-ROL-001", "02.md", 1)]
+    # cita exacta de UNA pagina: no se listan las otras páginas recuperadas del mismo documento
+    assert fuentes_citadas(politicas, "Según GD-POL-001 (01.md, pág. 3) el plazo es 4 h.") == ["GD-POL-001 (01.md, pág. 3)"]
+    # solo el código: se lista el documento, sin inventar página
+    assert fuentes_citadas(politicas, "Ver GD-ROL-001 para los responsables.") == ["GD-ROL-001 (02.md)"]
+    # un código que no se nombra no aparece, y un código parecido (GD-POL-0011) no cuenta
+    assert fuentes_citadas(politicas, "Ver GD-POL-0011.") == []
+    assert fuentes_citadas([], "Ver GD-POL-001") == []

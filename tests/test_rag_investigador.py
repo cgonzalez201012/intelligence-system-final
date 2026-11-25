@@ -145,3 +145,15 @@ def test_la_validacion_de_incidentes_sigue_igual_con_politicas_de_por_medio():
     con_politicas = hallazgos.fusionar(Hallazgos(politicas=[FragmentoCitado(**_fragmento())]))
     texto = "INC-1001 e INC-1002 (prioridad INC-1001). Ver GD-POL-001."
     assert validar_redactor(con_politicas, analisis_de_datos(hallazgos), texto) == []
+
+
+def test_si_el_supervisor_saltea_al_analista_el_informe_igual_debe_cubrir_los_incidentes_recolectados():
+    hallazgos = hallazgos_de_datos()   # INC-1001 e INC-1002 detallados
+    problemas = validar_redactor(hallazgos, None, "Hay incidentes críticos en artículos.")
+    assert any("INC-1001" in p and "INC-1002" in p for p in problemas)
+    assert validar_redactor(hallazgos, None, "Cubro INC-1001 y INC-1002.") == []
+
+
+def test_una_consulta_solo_de_politicas_sin_incidentes_no_se_ve_afectada_por_esa_cobertura():
+    hallazgos = Hallazgos(politicas=[FragmentoCitado(**_fragmento())])
+    assert validar_redactor(hallazgos, None, "El plazo está en GD-POL-001 (01-politica.md, pág. 1).") == []
