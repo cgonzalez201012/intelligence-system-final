@@ -1,0 +1,23 @@
+# Orquestador multi-agente (pre-entrega 6)
+langgraph==1.2.19
+langchain-core==1.7.3
+langchain-anthropic==1.7.7
+anthropic==2.3.0
+pydantic==2.14.2
+python-dotenv==1.2.4
+
+# Capa de produccion (pre-entrega 7): API, Redis (estado de jobs + checkpoints) y trazas
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+redis==8.1.0
+langgraph-checkpoint-redis==0.6.0
+arize-phoenix-otel==0.17.2
+openinference-instrumentation-langchain==0.1.82
+opentelemetry-sdk==1.45.2
+httpx==0.28.1
+
+# Pruebas y chequeo de tipos (con esto alcanza para correr `pytest`)
+pytest==9.2.0
+pytest-asyncio==1.4.1
+fakeredis==2.40.0
+mypy==2.4.1

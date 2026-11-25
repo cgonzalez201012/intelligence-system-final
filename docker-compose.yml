@@ -1,0 +1,85 @@
+# Levanta todo con un comando:  docker compose up --build
+#
+#   redis    cola de tareas + estado de los jobs + checkpoints de LangGraph (Redis 8 trae los modulos de busqueda y JSON)
+#   phoenix  dashboard de trazas en http://localhost:6006
+#   api      FastAPI en http://localhost:8000  (documentacion interactiva en /docs)
+#   worker   corre el grafo; se puede escalar:  docker compose up --build --scale worker=2
+#
+# La clave de Anthropic y el resto de los ajustes se leen del archivo .env (copia de .env.example):
+# Compose los pasa a los contenedores con la sintaxis ${VARIABLE:-}. Si una variable esta vacia o falta,
+# la aplicacion usa su valor por defecto.
+
+x-ajustes-de-la-aplicacion: &ajustes
+  TTL_JOBS_SEGUNDOS: "${TTL_JOBS_SEGUNDOS:-}"
+
+services:
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"   # interfaz web y receptor de trazas por HTTP (/v1/traces)
+      - "4317:4317"   # receptor de trazas por gRPC
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+      # Las versiones nuevas de la imagen piden login y rechazan las trazas con 401. Es un entorno local
+      # de desarrollo y de demostracion: sin autenticacion. En un despliegue real se activa y se le da
+      # al worker PHOENIX_CLIENT_HEADERS / PHOENIX_API_KEY.
+      PHOENIX_ENABLE_AUTH: "false"
+    volumes:
+      - phoenix-data:/mnt/data
+
+  api:
+    build: .
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *ajustes
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker"]
+    stop_grace_period: 2m   # al apagarlo, deja terminar los jobs en curso (un job tarda ~35 s) antes de cortarlo
+    environment:
+      <<: *ajustes
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"   # si falta, el worker se detiene y lo explica en el log
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+      OBSERVABILIDAD: "${OBSERVABILIDAD:-}"
+      VERSION_PROMPTS: "${VERSION_PROMPTS:-}"
+      PHOENIX_PROJECT_NAME: "${PHOENIX_PROJECT_NAME:-}"
+      WORKER_CONCURRENCIA: "${WORKER_CONCURRENCIA:-}"
+      JOB_TIMEOUT_SEGUNDOS: "${JOB_TIMEOUT_SEGUNDOS:-}"
+      TTL_CHECKPOINTS_MINUTOS: "${TTL_CHECKPOINTS_MINUTOS:-}"
+      MODELO_LLM: "${MODELO_LLM:-claude-haiku-4-5}"
+      MODELO_SUPERVISOR: "${MODELO_SUPERVISOR:-}"
+      MODELO_ESPECIALISTAS: "${MODELO_ESPECIALISTAS:-}"
+      MAX_PASOS: "${MAX_PASOS:-}"
+      MAX_INTENTOS_POR_AGENTE: "${MAX_INTENTOS_POR_AGENTE:-}"
+      RECURSION_ESPECIALISTA: "${RECURSION_ESPECIALISTA:-}"
+      ANTHROPIC_OPEN_TELEMETRY: "false"   # sin spans duplicados del SDK (ver app/observability.py)
+    depends_on:
+      redis:
+        condition: service_healthy
+      phoenix:
+        condition: service_started
+
+volumes:
+  redis-data:
+  phoenix-data:

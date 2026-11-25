@@ -1,0 +1,87 @@
+
+=== Clave de Anthropic ===
+hay una clave cargada en .env (no se muestra)
+
+=== Levantar Redis, Phoenix, API y worker ===
+#14 naming to docker.io/library/pre-entrega-7-api-agente-worker:latest done
+#14 unpacking to docker.io/library/pre-entrega-7-api-agente-worker:latest done
+#14 DONE 0.0s
+
+#15 [api] resolving provenance for metadata file
+#15 DONE 0.0s
+
+#16 [worker] resolving provenance for metadata file
+#16 DONE 0.0s
+ Image pre-entrega-7-api-agente-worker Built 
+ Image pre-entrega-7-api-agente-api Built 
+ Container pre-entrega-7-api-agente-redis-1 Running 
+ Container pre-entrega-7-api-agente-phoenix-1 Running 
+ Container pre-entrega-7-api-agente-api-1 Recreate 
+ Container pre-entrega-7-api-agente-worker-1 Recreate 
+ Container pre-entrega-7-api-agente-api-1 Recreated 
+ Container pre-entrega-7-api-agente-worker-1 Recreated 
+ Container pre-entrega-7-api-agente-redis-1 Waiting 
+ Container pre-entrega-7-api-agente-redis-1 Waiting 
+ Container pre-entrega-7-api-agente-redis-1 Healthy 
+ Container pre-entrega-7-api-agente-api-1 Starting 
+ Container pre-entrega-7-api-agente-redis-1 Healthy 
+ Container pre-entrega-7-api-agente-worker-1 Starting 
+ Container pre-entrega-7-api-agente-worker-1 Started 
+ Container pre-entrega-7-api-agente-api-1 Started 
+esperando a la API...
+{"estado":"ok","redis":"ok","tareas_en_cola":0}
+SERVICE   STATUS
+api       Up 2 seconds
+phoenix   Up 16 minutes
+redis     Up 16 minutes (healthy)
+worker    Up 2 seconds
+
+=== Prueba 1: una tarea con incidentes criticos (se pausa, el script la aprueba, termina) ===
+Disparando 1 peticiones concurrentes a http://localhost:8000 (perfil: con-aprobacion)...
+
+ #  job_id                             estado             aceptado    total   worker   tokens(in/out)
+ 1  df36a21fd2084a809a789bf7788cf4eb   DONE                 0.004s    33.2s    31.5s   32560/3000    
+
+Peticiones: 1  exitosas: 1  fallidas: 0
+Tiempo total de la prueba: 33.19 s
+Latencia p50: 33.19 s | p95: 33.19 s | maxima: 33.19 s
+La API acepto cada peticion en 0.0 s como maximo (no espera al modelo).
+Tokens por ejecucion (promedio): 35560.0
+Costo por ejecucion: USD 0.04756
+
+Resumen guardado en docs/evidencia/hitl-1-job.json
+Avisos 'enviados' (simulados) en Redis:
+{"job_id": "df36a21fd2084a809a789bf7788cf4eb", "incidente_id": "INC-1002", "destinatario": "Gerente Comercial (Data Owner de Articulos)", "motivo": "INC-1002 (Precio de lista en cero en articulos de v
+{"job_id": "df36a21fd2084a809a789bf7788cf4eb", "incidente_id": "INC-1001", "destinatario": "Gerente Comercial (Data Owner de Articulos)", "motivo": "INC-1001 (Articulos activos sin codigo EAN) es crít
+
+=== Ultimas lineas del worker ===
+2026-11-15 12:17:36,968 INFO redisvl.index.index: Index already exists, not overwriting.
+2026-11-15 12:17:36,969 INFO redisvl.index.index: Index already exists, not overwriting.
+2026-11-15 12:17:36,969 INFO langgraph.checkpoint.redis.aio: Redis client is a standalone client
+2026-11-15 12:17:36,972 INFO redisvl.index.index: Index already exists, not overwriting.
+2026-11-15 12:17:36,973 INFO redisvl.index.index: Index already exists, not overwriting.
+2026-11-15 12:17:36,973 INFO langgraph.checkpoint.redis.aio: Redis cluster_mode explicitly set to False, skipping detection.
+2026-11-15 12:17:36,987 INFO worker: Worker listo (concurrencia 5).
+2026-11-15 12:17:37,708 INFO worker: job df36a21fd2084a809a789bf7788cf4eb: RUNNING (ejecutar)
+2026-11-15 12:17:40,431 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:41,941 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:43,675 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:46,266 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:48,287 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:49,959 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:51,557 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:53,813 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:57,228 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:17:59,285 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:18:01,789 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:18:04,092 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:18:07,374 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:18:09,112 INFO httpx2: HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-11-15 12:18:09,229 INFO worker: job df36a21fd2084a809a789bf7788cf4eb: WAITING_APPROVAL
+2026-11-15 12:18:09,882 INFO worker: job df36a21fd2084a809a789bf7788cf4eb: RUNNING (reanudar)
+2026-11-15 12:18:09,898 INFO worker: job df36a21fd2084a809a789bf7788cf4eb: DONE (completado)
+
+=== Control de trazas ===
+ok: Phoenix recibio las trazas sin errores
+
+Listo. Ahora abri http://localhost:6006 (Phoenix) para sacar las capturas.
