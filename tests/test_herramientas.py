@@ -152,6 +152,6 @@ def test_cada_herramienta_tiene_descripcion_larga_y_esquema_de_argumentos(herram
 def test_las_herramientas_de_cada_agente_estan_acotadas_y_no_se_mezclan() -> None:
     investigador = {h.name for h in HERRAMIENTAS_INVESTIGADOR}
     analista = {h.name for h in HERRAMIENTAS_ANALISTA}
-    assert investigador == {"buscar_incidentes_calidad", "detalle_incidente", "consultar_regla_calidad"}
+    assert investigador == {"buscar_incidentes_calidad", "detalle_incidente", "consultar_regla_calidad", "buscar_en_politicas"}
     assert analista == {"calcular_brecha_regla", "calcular_vencimiento_sla", "priorizar_incidentes"}
     assert investigador.isdisjoint(analista)

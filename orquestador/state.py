@@ -88,6 +88,18 @@ class ReglaHallazgo(_Modelo):
     cumple_umbral: bool
 
 
+class FragmentoCitado(_Modelo):
+    """Un fragmento de politica que devolvio la busqueda en el RAG: lo que el informe puede citar."""
+
+    chunk_id: str
+    documento_id: str
+    codigo: str
+    fuente: str
+    pagina: int | None = None
+    cita: str
+    texto: str
+
+
 class Hallazgos(_Modelo):
     """Lo que el investigador le entrega al resto del equipo.
 
@@ -98,6 +110,7 @@ class Hallazgos(_Modelo):
     fecha_corte: date | None = None
     incidentes: list[IncidenteHallazgo] = Field(default_factory=list)
     reglas: list[ReglaHallazgo] = Field(default_factory=list)
+    politicas: list[FragmentoCitado] = Field(default_factory=list)
     consultas_con_error: list[str] = Field(default_factory=list)
     herramientas_usadas: list[str] = Field(default_factory=list)
     fuera_de_alcance: bool = False
@@ -112,6 +125,10 @@ class Hallazgos(_Modelo):
     def ids_conocidos(self) -> set[str]:
         """Todos los IDs (incidentes y reglas) que existen en los datos recolectados."""
         return {i.id for i in self.incidentes} | {r.id for r in self.reglas}
+
+    def codigos_de_politicas(self) -> set[str]:
+        """Codigos de los documentos de politica (GD-POL-001, ...) que el RAG realmente recupero."""
+        return {p.codigo for p in self.politicas}
 
     def fusionar(self, nuevos: "Hallazgos") -> "Hallazgos":
         """Suma lo que trajo una nueva corrida del investigador a lo que ya se habia recolectado.
@@ -132,10 +149,13 @@ class Hallazgos(_Modelo):
             incidentes[incidente.id] = {**incidentes.get(incidente.id, {}), **vigentes}
         reglas = {r.id: r for r in self.reglas}
         reglas.update({r.id: r for r in nuevos.reglas})
+        politicas = {p.chunk_id: p for p in self.politicas}
+        politicas.update({p.chunk_id: p for p in nuevos.politicas})
         return Hallazgos(
             fecha_corte=nuevos.fecha_corte or self.fecha_corte,
             incidentes=[IncidenteHallazgo(**datos) for datos in incidentes.values()],
             reglas=list(reglas.values()),
+            politicas=list(politicas.values()),
             consultas_con_error=nuevos.consultas_con_error,
             herramientas_usadas=[*self.herramientas_usadas, *nuevos.herramientas_usadas],
             fuera_de_alcance=False,
@@ -362,6 +382,7 @@ def estado_inicial(tarea: str) -> dict[str, object]:
 CLASES_DEL_ESTADO: tuple[type[BaseModel], ...] = (
     IncidenteHallazgo,
     ReglaHallazgo,
+    FragmentoCitado,
     Hallazgos,
     BrechaRegla,
     VencimientoSLA,

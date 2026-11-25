@@ -37,6 +37,7 @@ from orquestador.state import (
 )
 
 PATRON_IDS = re.compile(r"\b(?:INC-\d{4}|R-[A-Z]{3}-\d{2})\b")
+PATRON_POLITICAS = re.compile(r"\bGD-[A-Z]{3}-\d{3}\b")   # codigo de un documento de politica (GD-POL-001)
 
 
 def validar_investigador(hallazgos: Hallazgos | None) -> list[str]:
@@ -156,6 +157,15 @@ def validar_redactor(hallazgos: Hallazgos | None, analisis: Analisis | None, inf
     inventados = citados - conocidos
     if inventados:
         problemas.append(f"El informe cita IDs que no existen en los datos: {', '.join(sorted(inventados))}.")
+
+    # Una politica solo se puede citar si el RAG la devolvio en esta tarea (no vale citar de memoria).
+    codigos_recuperados = hallazgos.codigos_de_politicas() if hallazgos is not None else set()
+    sin_respaldo = set(PATRON_POLITICAS.findall(informe)) - codigos_recuperados
+    if sin_respaldo:
+        problemas.append(
+            "El informe cita documentos de política que no se recuperaron con buscar_en_politicas: "
+            f"{', '.join(sorted(sin_respaldo))}."
+        )
 
     if hallazgos is not None and analisis is not None and not hallazgos.fuera_de_alcance:
         faltantes = {i.id for i in hallazgos.incidentes_detallados()} - citados

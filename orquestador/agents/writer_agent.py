@@ -28,6 +28,8 @@ Reglas de trabajo:
    en ellos, y no calcules nada nuevo.
 2. Citá los IDs (INC-NNNN y R-XXX-NN) de todos los incidentes que analizaron los otros agentes y
    de sus reglas.
+   Si recibís fragmentos de políticas, citá la política con su código y su fuente tal como vienen
+   (por ejemplo "GD-POL-001 (01-politica.md, pág. 1)") y nunca cites una política que no esté en los datos.
 3. Si hay un ranking de prioridad, el primer incidente del ranking es el que hay que atacar
    primero: nombralo explícitamente en el informe y explicá por qué con los números recibidos
    (severidad, horas pasadas del plazo, brecha de la regla).
@@ -49,6 +51,7 @@ def datos_para_el_redactor(hallazgos: Hallazgos, analisis: Analisis | None) -> s
         "fecha_corte": hallazgos.fecha_corte.isoformat() if hallazgos.fecha_corte else None,
         "incidentes": [i.model_dump(mode="json") for i in hallazgos.incidentes_detallados()],
         "reglas": [r.model_dump(mode="json") for r in hallazgos.reglas],
+        "politicas": [p.model_dump(mode="json") for p in hallazgos.politicas],
     }
     if analisis is not None:
         datos["analisis"] = {
