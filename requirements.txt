@@ -16,6 +16,17 @@ openinference-instrumentation-langchain==0.1.82
 opentelemetry-sdk==1.45.2
 httpx==0.28.1
 
+# --- RAG hibrido (pre-entrega 4): Pinecone + BM25, embeddings de Gemini ---
+langchain-classic==1.1.0
+langchain-community==0.4.2
+rank-bm25==0.2.2
+langchain-pinecone==0.2.13
+pinecone==7.3.0
+langchain-google-genai==4.5.2
+langchain-text-splitters==1.2.0
+pypdf==7.1.1
+tiktoken==0.14.0
+
 # Pruebas y chequeo de tipos (con esto alcanza para correr `pytest`)
 pytest==9.2.0
 pytest-asyncio==1.4.1

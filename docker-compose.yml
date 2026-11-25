@@ -73,6 +73,11 @@ services:
       MAX_PASOS: "${MAX_PASOS:-}"
       MAX_INTENTOS_POR_AGENTE: "${MAX_INTENTOS_POR_AGENTE:-}"
       RECURSION_ESPECIALISTA: "${RECURSION_ESPECIALISTA:-}"
+      PINECONE_API_KEY: "${PINECONE_API_KEY:-}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      INDEX_NAME: "${INDEX_NAME:-}"
+      PINECONE_NAMESPACE: "${PINECONE_NAMESPACE:-}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-}"
       ANTHROPIC_OPEN_TELEMETRY: "false"   # sin spans duplicados del SDK (ver app/observability.py)
     depends_on:
       redis:
