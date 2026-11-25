@@ -14,7 +14,8 @@ Dos redes de seguridad mas contra el mismo problema:
 - cada job tiene un tiempo maximo (`JOB_TIMEOUT_SEGUNDOS`): si lo supera, queda en FAILED;
 - si el worker muere a mitad de un job (kill, falta de memoria, reinicio), ningun codigo de este proceso
   puede marcarlo, asi que cada worker barre periodicamente los jobs que llevan en RUNNING mas que el
-  timeout y los pasa a FAILED (`AlmacenDeJobs.marcar_huerfanos`).
+  timeout. Si era una REANUDACION (ya tenia la decision humana y su checkpoint), se reencola para que
+  otro worker la retome (`rescatar_reanudaciones_huerfanas`); si no, pasa a FAILED (`marcar_huerfanos`).
 """
 
 import asyncio
@@ -225,6 +226,11 @@ async def barrer_huerfanos(servicios: Servicios, detener: asyncio.Event, cada_se
     """Cada tanto, pasa a FAILED los jobs que quedaron en RUNNING porque su worker murio (ver el docstring del modulo)."""
     while not detener.is_set():
         try:
+            rescatados = await servicios.almacen.rescatar_reanudaciones_huerfanas(
+                mas_viejos_que_segundos=servicios.ajustes.job_huerfano_segundos
+            )
+            if rescatados:
+                logger.warning("Reanudaciones interrumpidas devueltas a la cola: %s", ", ".join(rescatados))
             huerfanos = await servicios.almacen.marcar_huerfanos(
                 mas_viejos_que_segundos=servicios.ajustes.job_huerfano_segundos, motivo=MOTIVO_HUERFANO
             )

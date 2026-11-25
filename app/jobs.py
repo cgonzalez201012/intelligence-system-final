@@ -24,6 +24,7 @@ from redis.exceptions import WatchError
 from app.schemas import EstadoJob, MensajeDeCola, TareaEstado
 
 COLA_DE_TAREAS = "cola:tareas"
+MAX_RECUPERACIONES = 2  # veces que se reencola una reanudacion interrumpida antes de darla por fallida
 _ID_VALIDO = re.compile(r"[0-9a-f]{32}")  # los job_id los genera uuid4().hex: cualquier otra cosa no es un job
 _CAMPOS_JSON = ("resultado", "aprobacion_pendiente", "decision", "uso")
 
@@ -106,6 +107,45 @@ class AlmacenDeJobs:
                 pipeline.hdel(clave, *a_borrar)
             pipeline.expire(clave, self._ttl)
             await pipeline.execute()
+
+    async def rescatar_reanudaciones_huerfanas(
+        self, *, mas_viejos_que_segundos: float, max_recuperaciones: int = MAX_RECUPERACIONES
+    ) -> list[str]:
+        """Devuelve a la cola los jobs que murieron a mitad de una REANUDACION, en vez de darlos por perdidos.
+
+        Un job que ya recibio la decision humana tiene su checkpoint guardado en Redis (quedo pausado ahi):
+        si el worker que lo reanudaba se cae, no hay que pedirle a la persona que apruebe de nuevo ni repetir el
+        analisis; alcanza con reencolar la reanudacion para que otro worker la retome. Es seguro porque el
+        escalamiento no se duplica (ver `NotificadorRedis`). Se hace en UNA transaccion (estado + cola) para no
+        dejar un job en PENDING sin mensaje. Pasadas `max_recuperaciones` el job se deja para `marcar_huerfanos`.
+        """
+        limite = datetime.now(UTC) - timedelta(seconds=mas_viejos_que_segundos)
+        rescatados: list[str] = []
+        async for clave in self._redis.scan_iter(match="job:*", count=200):
+            job_id = str(clave)[len("job:"):]
+            if not _ID_VALIDO.fullmatch(job_id):
+                continue
+            async with self._redis.pipeline(transaction=True) as pipeline:
+                try:
+                    await pipeline.watch(clave)
+                    estado, actualizado, decision, recuperaciones = await pipeline.hmget(
+                        clave, ["estado", "actualizado_en", "decision", "recuperaciones"]
+                    )
+                    if estado != "RUNNING" or not decision or not actualizado:
+                        continue
+                    if datetime.fromisoformat(str(actualizado)) > limite or int(recuperaciones or 0) >= max_recuperaciones:
+                        continue
+                    pipeline.multi()
+                    pipeline.hset(clave, mapping={
+                        "estado": "PENDING", "actualizado_en": ahora(), "recuperaciones": int(recuperaciones or 0) + 1,
+                    })
+                    pipeline.expire(clave, self._ttl)
+                    pipeline.lpush(self._cola, MensajeDeCola(job_id=job_id, accion="reanudar").model_dump_json())
+                    await pipeline.execute()
+                    rescatados.append(job_id)
+                except (WatchError, ValueError):
+                    continue
+        return rescatados
 
     async def marcar_huerfanos(self, *, mas_viejos_que_segundos: float, motivo: str) -> list[str]:
         """Pasa a FAILED los jobs que llevan demasiado tiempo en RUNNING (su worker se cayo y nadie los va a terminar).

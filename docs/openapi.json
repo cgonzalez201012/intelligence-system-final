@@ -412,6 +412,12 @@
             "title": "Job Id",
             "type": "string"
           },
+          "recuperaciones": {
+            "default": 0,
+            "description": "Veces que otro worker retomo este job desde su checkpoint porque el anterior se cayo.",
+            "title": "Recuperaciones",
+            "type": "integer"
+          },
           "resultado": {
             "anyOf": [
               {

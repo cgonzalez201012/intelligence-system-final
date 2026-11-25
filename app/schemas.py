@@ -129,6 +129,9 @@ class TareaEstado(BaseModel):
     decision: DecisionHumana | None = None
     uso: UsoDelModelo = Field(default_factory=UsoDelModelo)
     segundos_de_ejecucion: float = 0.0
+    recuperaciones: int = Field(
+        default=0, description="Veces que otro worker retomo este job desde su checkpoint porque el anterior se cayo."
+    )
 
 
 class MensajeDeCola(BaseModel):
