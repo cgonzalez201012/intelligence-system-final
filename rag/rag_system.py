@@ -251,7 +251,12 @@ class RAGSystem:
         return [_a_fragmento(i, d) for i, d in enumerate(documentos[:limite], start=1)]
 
     async def consultar(self, consulta: ConsultaRAG) -> ResultadoRAG:
-        """Version tipada de `buscar`: entra una ConsultaRAG validada, sale un ResultadoRAG con la latencia medida."""
+        """Version tipada de `buscar`: entra una ConsultaRAG validada, sale un ResultadoRAG con la latencia medida.
+
+        No abre spans propios: con la observabilidad activa, `retriever.ainvoke` ya deja un span RETRIEVER de
+        LangChain (con los fragmentos y su metadata) dentro de la traza de la tarea. Un span manual aparte
+        quedaria como traza suelta, porque el instrumentador no lo vincula con el span de la herramienta.
+        """
         inicio = time.perf_counter()
         fragmentos = await self.buscar(consulta.consulta, categoria=consulta.categoria, modo=consulta.modo, k=consulta.k)
         return ResultadoRAG(
