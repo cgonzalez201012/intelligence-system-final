@@ -31,7 +31,7 @@ def crear_embeddings(cfg: config.Configuracion) -> Embeddings:
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
     return GoogleGenerativeAIEmbeddings(
-        model=config.EMBEDDING_MODEL,
+        model=config.modelo_de_embeddings(),
         google_api_key=cfg.google_api_key,  # type: ignore[call-arg]  # alias de pydantic que mypy no ve
         output_dimensionality=config.EMBEDDING_DIMENSION,
     )

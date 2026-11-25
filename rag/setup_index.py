@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     accion = "creado y listo" if estado.creado else "ya existia (no se modifico)"
     print(f"\nIndice '{estado.nombre}': {accion}")
     print(f"  Tipo ........ Serverless ({estado.cloud}, {estado.region})")
-    print(f"  Dimension ... {estado.dimension}  (= dimension de {config.EMBEDDING_MODEL})")
+    print(f"  Dimension ... {estado.dimension}  (= dimension de {config.modelo_de_embeddings()})")
     print(f"  Metrica ..... {estado.metrica}")
     print("Siguiente paso: python -m rag.ingest")
     return 0

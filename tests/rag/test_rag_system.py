@@ -1,4 +1,5 @@
 """Recuperador hibrido: fusion BM25 + vectorial, filtros por metadatos, y la integracion real con LangChain."""
+import asyncio
 import pytest
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_pinecone import PineconeVectorStore
@@ -9,7 +10,7 @@ from rag import rag_system
 from rag.errores import FiltroSinResultadosError, NamespaceVacioError
 from rag.rag_system import BM25SoloCoincidencias, RAGSystem, normalizar_para_bm25
 from rag.schemas import FragmentoRecuperado
-from tests.rag.fakes import EmbeddingsSimulados, FakePinecone, PineconeVectorStoreDePrueba, VectorStoreFijo, contar_palabras, documento
+from tests.rag.fakes import EmbeddingsSimulados, FakePinecone, VectorStoreFijo, contar_palabras, documento
 
 # Un corpus chico: el codigo exacto solo aparece en un fragmento; la "parafrasis" no comparte palabras con el texto.
 LEXICO = documento("El procedimiento GD-PRO-003 regula el alta de articulos nuevos", doc="proc", categoria="procedimiento", n=0)
@@ -219,7 +220,7 @@ async def sistema_real(tmp_path):
     embeddings = EmbeddingsSimulados()
     cfg = config.Configuracion(pinecone_api_key="x", index_name="idx", namespace="ns", google_api_key="y")
     ingest.ingestar(cfg, pc=nube, embeddings=embeddings, contador=contar_palabras, dormir=lambda s: None)
-    rag = await RAGSystem.desde_indice(index, embeddings, "ns", vectorstore_factory=PineconeVectorStoreDePrueba)
+    rag = await RAGSystem.desde_indice(index, embeddings, "ns")
     return rag, index
 
 
@@ -228,6 +229,21 @@ def test_integracion_con_pinecone_vector_store_y_el_corpus_leido_de_la_metadata(
     assert isinstance(rag._vectorstore, PineconeVectorStore)
     assert len(rag._documentos) == index.cantidad("ns")      # BM25 se armo con TODO el namespace
     assert all(config.TEXT_KEY not in d.metadata for d in rag._documentos)
+
+
+async def test_integracion_muchas_busquedas_simultaneas_no_usan_el_cliente_asincrono_compartido(sistema_real, monkeypatch):
+    """langchain-pinecone comparte una sesión aiohttp entre llamadas async: con búsquedas a la vez una cierra la de otra.
+    Con el vector store de producción (`PineconeVectorStoreEnHilo`) ese camino no se usa nunca."""
+    from rag.vectorstore import PineconeVectorStoreEnHilo
+
+    async def prohibido(*args, **kwargs):
+        raise AssertionError("se usó el camino asíncrono compartido de langchain-pinecone")
+
+    monkeypatch.setattr(PineconeVectorStore, "asimilarity_search", prohibido)
+    rag, _ = sistema_real
+    assert type(rag._vectorstore) is PineconeVectorStoreEnHilo
+    resultados = await asyncio.gather(*(rag.buscar("plazo para resolver un incidente critico", modo="vectorial") for _ in range(10)))
+    assert all(len(r) > 0 for r in resultados)
 
 
 async def test_integracion_busca_por_codigo_exacto_y_por_pregunta(sistema_real):
@@ -252,7 +268,7 @@ async def test_integracion_el_filtro_llega_a_pinecone_y_solo_trae_esa_categoria(
 async def test_integracion_un_namespace_vacio_indica_como_indexar(sistema_real):
     _, index = sistema_real
     with pytest.raises(NamespaceVacioError, match="rag.ingest"):
-        await RAGSystem.desde_indice(index, EmbeddingsSimulados(), "namespace-vacio", vectorstore_factory=PineconeVectorStoreDePrueba)
+        await RAGSystem.desde_indice(index, EmbeddingsSimulados(), "namespace-vacio")
 
 
 async def test_desde_configuracion_abre_el_indice_y_arma_el_sistema(sistema_real, monkeypatch):
@@ -262,7 +278,6 @@ async def test_desde_configuracion_abre_el_indice_y_arma_el_sistema(sistema_real
     cfg = config.Configuracion(pinecone_api_key="x", index_name="idx", namespace="ns", google_api_key="y")
     monkeypatch.setattr(rag_system, "crear_cliente", lambda c: nube)
     monkeypatch.setattr(rag_system, "crear_embeddings", lambda c: EmbeddingsSimulados())
-    monkeypatch.setattr("langchain_pinecone.PineconeVectorStore", PineconeVectorStoreDePrueba)
 
     rag = await RAGSystem.desde_configuracion(cfg, k=3)
     assert rag.k == 3 and len(await rag.buscar("GD-POL-001")) == 3

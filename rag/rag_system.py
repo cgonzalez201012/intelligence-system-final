@@ -14,8 +14,9 @@ Por que hibrido (para defenderlo):
 
 Detalles de implementacion:
 * Asincronia: el SDK de Pinecone, BM25 y la libreria de embeddings son sincronos. Nada de eso corre en el event loop:
-  la construccion (listar y leer el corpus) va en `asyncio.to_thread` y las busquedas usan `retriever.ainvoke`, que
-  LangChain ejecuta en un hilo cuando el recuperador no tiene version asincrona propia.
+  la construccion (listar y leer el corpus) va en `asyncio.to_thread` y las busquedas usan `retriever.ainvoke`. La
+  busqueda vectorial usa `PineconeVectorStoreEnHilo` (ver rag/vectorstore.py): corre la busqueda del SDK en un hilo
+  en lugar del cliente aiohttp de langchain-pinecone, que comparte sesion y falla con busquedas simultaneas.
 * BM25 se arma en memoria con el texto que se guardo en la metadata de Pinecone (cargar_corpus).
 * El EnsembleRetriever devuelve la union de ambas listas (hasta 2k): aca se recorta a los k mejores.
 * El tokenizador de BM25 normaliza mayusculas y tildes y conserva los codigos con guiones ("gd-pro-003")
@@ -42,6 +43,7 @@ from rag import config
 from rag.almacen import abrir_indice, cargar_corpus, crear_cliente
 from rag.embeddings import crear_embeddings, es_error_de_cuota
 from rag.errores import EmbeddingsError, FiltroSinResultadosError, NamespaceVacioError
+from rag.vectorstore import PineconeVectorStoreEnHilo
 from rag.schemas import ConsultaRAG, FragmentoRecuperado, ModoBusqueda, ResultadoRAG
 
 logger = logging.getLogger("rag.sistema")
@@ -152,9 +154,7 @@ class RAGSystem:
         Listar y leer el corpus son llamadas sincronas al SDK: van en un hilo para no frenar el event loop.
         """
         if vectorstore_factory is None:
-            from langchain_pinecone import PineconeVectorStore
-
-            vectorstore_factory = PineconeVectorStore
+            vectorstore_factory = PineconeVectorStoreEnHilo
         vectorstore = vectorstore_factory(
             index=index, embedding=embeddings, text_key=config.TEXT_KEY, namespace=namespace
         )

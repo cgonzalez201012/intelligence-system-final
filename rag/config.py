@@ -24,7 +24,13 @@ EXTENSIONES_VALIDAS = (".md", ".txt", ".pdf")
 # del indice de Pinecone TIENE que ser EXACTAMENTE esta (error comun #1 de la consigna).
 # 1536 es la dimension que la consigna usa de ejemplo; gemini-embedding-001 permite fijarla
 # (por defecto devuelve 3072) con el parametro output_dimensionality.
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "").strip() or "gemini-embedding-001"
+EMBEDDING_MODEL_POR_DEFECTO = "gemini-embedding-001"
+
+
+def modelo_de_embeddings() -> str:
+    """Modelo de embeddings: variable EMBEDDING_MODEL o el valor por defecto. Se lee al usarlo (ya cargado el .env)."""
+    return os.environ.get("EMBEDDING_MODEL", "").strip() or EMBEDDING_MODEL_POR_DEFECTO
+
 EMBEDDING_DIMENSION = 1536
 METRICA = "cosine"                 # la misma metrica con la que se entrenan estos embeddings
 

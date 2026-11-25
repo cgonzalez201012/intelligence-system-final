@@ -72,7 +72,7 @@ def verificar_indice_compatible(
     dim_indice = leer_campo(descripcion, "dimension")
     if dim_indice != dimension:
         raise DimensionNoCoincideError(
-            f"El indice '{nombre}' tiene dimension {dim_indice} y los embeddings ({config.EMBEDDING_MODEL}) "
+            f"El indice '{nombre}' tiene dimension {dim_indice} y los embeddings ({config.modelo_de_embeddings()}) "
             f"producen vectores de {dimension}. Pinecone no acepta vectores de otro tamano. "
             "Usa otro INDEX_NAME, o borra ese indice desde la consola de Pinecone y volve a correr "
             "python -m rag.setup_index."

@@ -23,7 +23,6 @@ from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.retrievers import BaseRetriever
-from langchain_pinecone import PineconeVectorStore
 
 from rag import config
 
@@ -307,16 +306,3 @@ def crear_pdf(ruta: Path, paginas: list[str]) -> None:
         salida += f"{desplazamiento:010d} 00000 n \n".encode()
     salida += f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R >>\nstartxref\n{inicio_xref}\n%%EOF\n".encode()
     ruta.write_bytes(salida)
-
-
-# --------------------------------------------------------------------------- vector store para los tests
-class PineconeVectorStoreDePrueba(PineconeVectorStore):
-    """PineconeVectorStore real, pero con la busqueda asincrona redirigida al indice en memoria.
-
-    En produccion `asimilarity_search` usa el cliente asincrono del SDK (aiohttp) contra el host real del indice.
-    Con el indice simulado no hay host al que conectarse, asi que aca se ejecuta la busqueda sincrona en un hilo.
-    El resto (embeddings, filtros, conversion de resultados) es el codigo real de langchain-pinecone.
-    """
-
-    async def asimilarity_search(self, query: str, k: int = 4, filter: Any = None, namespace: Any = None, **kwargs: Any):  # type: ignore[override]
-        return await asyncio.to_thread(self.similarity_search, query, k=k, filter=filter, namespace=namespace, **kwargs)

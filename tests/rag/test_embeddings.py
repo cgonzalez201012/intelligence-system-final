@@ -72,5 +72,5 @@ def test_crear_embeddings_exige_la_clave_de_google():
 def test_crear_embeddings_fija_modelo_y_dimension_sin_usar_la_red():
     cfg = config.Configuracion(pinecone_api_key="x", index_name="i", namespace="n", google_api_key="clave-falsa")
     modelo = embeddings.crear_embeddings(cfg)
-    assert modelo.model.endswith(config.EMBEDDING_MODEL)
+    assert modelo.model.endswith(config.modelo_de_embeddings())
     assert modelo.output_dimensionality == config.EMBEDDING_DIMENSION == 1536

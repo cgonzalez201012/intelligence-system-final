@@ -146,3 +146,4 @@ async def test_varias_busquedas_concurrentes_no_se_pisan():
     rag = RAGSystem(VectorStoreFijo([CORPUS[1]]), CORPUS)
     resultados = await asyncio.gather(*(rag.buscar("GD-PRO-003", modo="bm25") for _ in range(5)))
     assert all([f.chunk_id for f in r] == ["proc#0"] for r in resultados)
+
