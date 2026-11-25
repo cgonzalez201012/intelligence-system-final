@@ -173,8 +173,13 @@ def test_toda_variable_del_env_example_llega_al_worker_en_docker_compose() -> No
 
 
 def test_el_worker_tiene_tiempo_para_terminar_sus_jobs_al_apagarse() -> None:
+    """Un job puede durar hasta JOB_TIMEOUT_SEGUNDOS: si Docker corta antes, el job queda a medias."""
+    from app.settings import JOB_TIMEOUT_POR_DEFECTO
+
     compose = yaml.safe_load((BASE_DIR / "docker-compose.yml").read_text(encoding="utf-8"))
-    assert compose["services"]["worker"]["stop_grace_period"] == "2m"
+    gracia = compose["services"]["worker"]["stop_grace_period"]
+    segundos = int(gracia[:-1]) * {"s": 1, "m": 60}[gracia[-1]]
+    assert segundos > JOB_TIMEOUT_POR_DEFECTO, f"{gracia} no alcanza para un job de {JOB_TIMEOUT_POR_DEFECTO} s"
 
 
 def test_el_diagrama_tambien_esta_como_imagen() -> None:

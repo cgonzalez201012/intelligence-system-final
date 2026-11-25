@@ -1,5 +1,6 @@
 # Imagen unica para la API, el worker y el indexador del RAG (cambia solo el comando, ver docker-compose.yml).
-FROM python:3.13-slim  # misma version mayor con la que se desarrollo y probo el proyecto
+# Version completa fija (mismo Python 3.13 con el que se desarrollo y probo el proyecto).
+FROM python:3.13.16-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

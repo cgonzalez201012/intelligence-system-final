@@ -16,7 +16,7 @@ x-ajustes-de-la-aplicacion: &ajustes
 
 services:
   redis:
-    image: redis:8
+    image: redis:8.8.4   # version fija; Redis 8+ trae los modulos de busqueda y JSON que usa el checkpointer
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -73,7 +73,7 @@ services:
   worker:
     build: .
     command: ["python", "-m", "app.worker"]
-    stop_grace_period: 2m   # al apagarlo, deja terminar los jobs en curso (un job tarda ~35 s) antes de cortarlo
+    stop_grace_period: 6m   # al apagarlo, deja terminar los jobs en curso: mas que JOB_TIMEOUT_SEGUNDOS (5 min) para que ninguno se corte a medias
     environment:
       <<: *ajustes
       REDIS_URL: redis://redis:6379

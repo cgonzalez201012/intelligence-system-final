@@ -29,12 +29,40 @@ def test_la_imagen_copia_todos_los_paquetes_que_importa_la_aplicacion() -> None:
     assert {"rag", "app", "orquestador", "data"} <= copiados
 
 
-def test_las_imagenes_de_terceros_tienen_version_fija() -> None:
+VERSION_COMPLETA = re.compile(r"^\d+\.\d+\.\d+(-[a-z]+)?$")  # 8.8.4 o 3.13.16-slim; nada de `8`, `3.13` ni `latest`
+
+
+def test_las_imagenes_de_terceros_tienen_version_completa_fija() -> None:
     for nombre, servicio in _compose()["services"].items():
         imagen = servicio.get("image")
         if imagen:
             etiqueta = imagen.split("#")[0].strip().partition(":")[2]
-            assert etiqueta and etiqueta != "latest", f"{nombre}: la imagen {imagen!r} no tiene versión fija"
+            assert VERSION_COMPLETA.match(etiqueta), f"{nombre}: la imagen {imagen!r} no tiene versión completa fija"
+
+
+def test_la_imagen_base_del_dockerfile_tiene_version_completa_fija() -> None:
+    desde = re.findall(r"^FROM (\S+)", (RAIZ / "Dockerfile").read_text(encoding="utf-8"), re.M)
+    assert desde and all(VERSION_COMPLETA.match(i.partition(":")[2]) for i in desde), desde
+
+
+def test_el_dockerfile_no_tiene_comentarios_en_la_misma_linea_que_una_instruccion() -> None:
+    """Docker solo admite comentarios al principio de la línea: `FROM x  # nota` rompe el build."""
+    lineas = (RAIZ / "Dockerfile").read_text(encoding="utf-8").splitlines()
+    malas = [l for l in lineas if re.match(r"^(FROM|RUN|COPY|ENV|CMD|WORKDIR|EXPOSE)\b.*\s#", l)]
+    assert not malas, malas
+
+
+def test_docker_acepta_la_sintaxis_del_dockerfile() -> None:
+    """Con daemon disponible, `docker build --check` valida el Dockerfile sin construir la imagen."""
+    if shutil.which("docker") is None:
+        pytest.skip("no hay docker instalado")
+    try:
+        resultado = subprocess.run(["docker", "build", "--check", str(RAIZ)], capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        pytest.skip("docker no respondió")
+    if "Cannot connect to the Docker daemon" in resultado.stderr or "failed to connect" in resultado.stderr:
+        pytest.skip("no hay daemon de docker corriendo")
+    assert resultado.returncode == 0, resultado.stderr
 
 
 def test_el_worker_espera_a_que_el_rag_este_indexado() -> None:

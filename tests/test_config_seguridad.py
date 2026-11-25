@@ -140,7 +140,7 @@ def test_docker_compose_levanta_redis_phoenix_api_y_worker() -> None:
     compose = (RAIZ / "docker-compose.yml").read_text(encoding="utf-8")
     for servicio in ("redis:", "phoenix:", "api:", "worker:"):
         assert f"\n  {servicio}" in compose, servicio
-    assert "image: redis:8" in compose, "los checkpoints necesitan RediSearch y RedisJSON (Redis 8+ o Stack)"
+    assert "image: redis:8." in compose, "los checkpoints necesitan RediSearch y RedisJSON (Redis 8+ o Stack)"
     assert "app.worker" in compose and "app.main:app" in compose
     assert "sk-ant" not in compose
 
