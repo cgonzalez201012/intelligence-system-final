@@ -30,7 +30,10 @@ if [[ ! -f .env ]]; then
 fi
 
 valor_de() {  # lee VARIABLE=valor del .env sin ejecutarlo
-  grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'" | xargs || true
+  # quita saltos de linea de Windows, comentarios al final de la linea, comillas y espacios (sin xargs: en macOS difiere)
+  grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | tr -d '\r' \
+    | sed -E 's/[[:space:]]+#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"(.*)"$/\1/' \
+    | sed -E "s/^'(.*)'\$/\\1/" || true
 }
 faltan=()
 for clave in ANTHROPIC_API_KEY PINECONE_API_KEY GOOGLE_API_KEY; do
