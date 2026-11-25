@@ -31,7 +31,7 @@ from redis.exceptions import RedisError
 from app.dependencias import almacen_de
 from app.jobs import AlmacenDeJobs
 from app.notificador import Notificador
-from app.schemas import AprobacionIn, MensajeDeCola, TareaCreada
+from app.schemas import AprobacionIn, ErrorApi, MensajeDeCola, TareaCreada
 from orquestador.agents.research_agent import NodoAsincrono
 from orquestador.state import AccionPropuesta, DecisionHumana, EstadoOrquestador, ResultadoAccion
 
@@ -164,6 +164,11 @@ router = APIRouter(prefix="/tasks", tags=["aprobación humana"])
     status_code=202,
     response_model=TareaCreada,
     summary="Aprobar o rechazar las acciones críticas de un job pausado",
+    responses={
+        404: {"model": ErrorApi, "description": "No existe un job con ese ID (o ya expiró)."},
+        409: {"model": ErrorApi, "description": "El job no está esperando una decisión, o ya recibió una."},
+        503: {"model": ErrorApi, "description": "Redis no responde; la decisión no quedó registrada, se puede reintentar."},
+    },
 )
 async def aprobar_tarea(
     job_id: str,

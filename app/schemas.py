@@ -1,22 +1,58 @@
 """Contratos de la API: todo lo que entra y sale por HTTP, validado con Pydantic."""
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from orquestador.state import AccionPropuesta, DecisionHumana, ResultadoAccion
+from orquestador.state import AccionPropuesta, DecisionHumana, EstadoFinal, ResultadoAccion
 
 # Ciclo de vida de un job. PENDING = en la cola esperando a un worker (tambien despues de aprobar,
 # mientras espera que un worker retome el grafo). WAITING_APPROVAL = el grafo esta pausado.
 EstadoJob = Literal["PENDING", "RUNNING", "WAITING_APPROVAL", "DONE", "FAILED"]
 ESTADOS_FINALES: frozenset[str] = frozenset({"DONE", "FAILED"})
 
-# La decision humana entra por el endpoint /approve con el mismo contrato que usa el grafo.
-AprobacionIn = DecisionHumana
+
+
+class AprobacionIn(DecisionHumana):
+    """Cuerpo de POST /tasks/{id}/approve: el mismo contrato que usa el grafo, sin campos de mas y con ejemplo."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        json_schema_extra={"example": {"aprobada": True, "revisor": "Cris", "comentario": "Escalar a los responsables."}},
+    )
+
+
+class ErrorApi(BaseModel):
+    """Forma de todos los errores que devuelve la API (404, 409, 503...)."""
+
+    detail: str = Field(description="Que paso y, cuando se puede, que hacer.")
+
+
+class Salud(BaseModel):
+    """Respuesta de GET /health."""
+
+    estado: Literal["ok"]
+    redis: Literal["ok"]
+    tareas_en_cola: int = Field(ge=0)
+
+
+class AprobacionPendiente(BaseModel):
+    """Lo que ve la persona que tiene que decidir cuando un job queda en WAITING_APPROVAL."""
+
+    tipo: Literal["aprobacion_requerida"]
+    motivo: str
+    acciones: list[AccionPropuesta]
+    informe: str = Field(description="Informe del equipo (recortado) para decidir con contexto.")
 
 
 class TareaIn(BaseModel):
     """Cuerpo de POST /tasks."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": {"tarea": "Priorizá los incidentes abiertos del maestro de artículos y citá la política que fija sus plazos."}},
+    )
 
     tarea: str = Field(min_length=10, max_length=2000, description="Consulta para el equipo de agentes.")
 
@@ -63,8 +99,14 @@ class AccionesDelJob(BaseModel):
 class ResultadoTarea(BaseModel):
     """Resultado de un job terminado."""
 
-    estado_final: str = Field(description="completado, limite_de_pasos o validacion_fallida (lo decide el supervisor).")
+    estado_final: EstadoFinal | Literal["desconocido"] = Field(
+        description="completado, limite_de_pasos o validacion_fallida (lo decide el supervisor)."
+    )
     respuesta: str
+    fuentes_citadas: list[str] = Field(
+        default_factory=list,
+        description="Politicas del RAG que la respuesta cita, con su codigo y fuente (por ejemplo 'GD-POL-001 (01-politica.md, pag. 1)').",
+    )
     agentes_que_intervinieron: list[str] = Field(default_factory=list)
     delegaciones: int = 0
     acciones: AccionesDelJob = Field(default_factory=AccionesDelJob)
@@ -83,7 +125,7 @@ class TareaEstado(BaseModel):
     finalizado_en: str | None = None
     resultado: ResultadoTarea | None = None
     error: str | None = None
-    aprobacion_pendiente: dict[str, Any] | None = None
+    aprobacion_pendiente: AprobacionPendiente | None = None
     decision: DecisionHumana | None = None
     uso: UsoDelModelo = Field(default_factory=UsoDelModelo)
     segundos_de_ejecucion: float = 0.0

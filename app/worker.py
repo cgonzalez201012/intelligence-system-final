@@ -36,7 +36,7 @@ from app.graph import abrir_checkpointer, crear_grafo_con_modelos_reales, verifi
 from app.jobs import AlmacenDeJobs
 from app.notificador import NotificadorRedis
 from app.observability import etiquetas_de_traza, iniciar_observabilidad
-from app.schemas import AccionesDelJob, MensajeDeCola, ResultadoTarea, TareaEstado, UsoDelModelo
+from app.schemas import AccionesDelJob, AprobacionPendiente, MensajeDeCola, ResultadoTarea, TareaEstado, UsoDelModelo
 from app.settings import Ajustes
 from orquestador.config import Configuracion
 from orquestador.errores import ErrorConfiguracion
@@ -96,9 +96,15 @@ def resultado_desde_estado(valores: dict[str, Any]) -> ResultadoTarea:
     for contribucion in valores.get("contribuciones", []):
         if contribucion.agente not in agentes:
             agentes.append(contribucion.agente)
+    respuesta = valores.get("respuesta_final") or ""
+    hallazgos = valores.get("hallazgos")
+    fuentes = (  # solo las politicas que la respuesta realmente nombra: la trazabilidad de cada afirmacion
+        sorted({p.cita for p in hallazgos.politicas if p.codigo in respuesta}) if hallazgos is not None else []
+    )
     return ResultadoTarea(
         estado_final=valores.get("estado_final") or "desconocido",
-        respuesta=valores.get("respuesta_final") or "",
+        respuesta=respuesta,
+        fuentes_citadas=fuentes,
         agentes_que_intervinieron=agentes,
         delegaciones=int(valores.get("pasos", 0)),
         acciones=AccionesDelJob(
@@ -169,7 +175,7 @@ async def _publicar(
         await servicios.almacen.actualizar(
             job.job_id,
             "WAITING_APPROVAL",
-            aprobacion_pendiente=foto.interrupts[0].value,
+            aprobacion_pendiente=AprobacionPendiente.model_validate(foto.interrupts[0].value),
             uso=uso,
             segundos_de_ejecucion=total,
         )

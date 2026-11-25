@@ -110,7 +110,7 @@ async def test_un_job_critico_se_pausa_en_waiting_approval_con_lo_que_hay_que_ap
     assert job is not None and job.estado == "WAITING_APPROVAL"
     assert job.finalizado_en is None and job.resultado is None
     assert job.aprobacion_pendiente is not None
-    assert [a["incidente_id"] for a in job.aprobacion_pendiente["acciones"]] == ["INC-1001", "INC-1002"]
+    assert [a.incidente_id for a in job.aprobacion_pendiente.acciones] == ["INC-1001", "INC-1002"]
     assert espia.llamadas == []  # pausado: todavia no se hizo nada
 
 

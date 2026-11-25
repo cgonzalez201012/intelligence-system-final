@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
+from pydantic import BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
@@ -93,6 +94,8 @@ class AlmacenDeJobs:
             if valor is None:
                 a_borrar.append(nombre)
             elif nombre in _CAMPOS_JSON:
+                if isinstance(valor, BaseModel):
+                    valor = valor.model_dump(mode="json")
                 a_guardar[nombre] = json.dumps(valor, ensure_ascii=False)
             else:
                 a_guardar[nombre] = str(valor)

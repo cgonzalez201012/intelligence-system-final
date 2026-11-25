@@ -27,11 +27,11 @@ from redis.exceptions import RedisError
 from app.dependencias import almacen_de
 from app.hitl import router as router_de_aprobacion
 from app.jobs import AlmacenDeJobs
-from app.schemas import MensajeDeCola, TareaCreada, TareaEstado, TareaIn
+from app.schemas import ErrorApi, MensajeDeCola, Salud, TareaCreada, TareaEstado, TareaIn
 from app.settings import Ajustes
 
 DESCRIPCION = """
-Expone el orquestador multi-agente de la pre-entrega 6 (supervisor + investigador, analista y redactor)
+Expone el sistema de inteligencia (supervisor + investigador con RAG, analista y redactor)
 como un servicio de produccion: las tareas se encolan en Redis, las corre un worker aparte y las que
 tienen un efecto externo (escalar un incidente critico) se pausan hasta que una persona las apruebe.
 Los datos son ficticios (Mercado Austral S.A.).
@@ -68,7 +68,14 @@ def crear_app(almacen: AlmacenDeJobs | None = None) -> FastAPI:
     async def _redis_caido(_: Request, error: RedisError) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": "Redis no responde: probá de nuevo en unos segundos."})
 
-    @app.post("/tasks", status_code=202, response_model=TareaCreada, tags=["tareas"], summary="Encolar una tarea")
+    @app.post(
+        "/tasks",
+        status_code=202,
+        response_model=TareaCreada,
+        tags=["tareas"],
+        summary="Encolar una tarea",
+        responses={503: {"model": ErrorApi, "description": "Redis no responde: la tarea no quedó encolada."}},
+    )
     async def crear_tarea(
         cuerpo: TareaIn, respuesta: Response, almacen: AlmacenDeJobs = Depends(almacen_de)
     ) -> TareaCreada:
@@ -86,17 +93,32 @@ def crear_app(almacen: AlmacenDeJobs | None = None) -> FastAPI:
         respuesta.headers["Location"] = f"/tasks/{job_id}"
         return TareaCreada(job_id=job_id, estado="PENDING", consultar_en=f"/tasks/{job_id}")
 
-    @app.get("/tasks/{job_id}", response_model=TareaEstado, tags=["tareas"], summary="Consultar el estado de una tarea")
+    @app.get(
+        "/tasks/{job_id}",
+        response_model=TareaEstado,
+        tags=["tareas"],
+        summary="Consultar el estado de una tarea",
+        responses={
+            404: {"model": ErrorApi, "description": "No existe un job con ese ID (o ya expiró)."},
+            503: {"model": ErrorApi, "description": "Redis no responde."},
+        },
+    )
     async def estado_de_la_tarea(job_id: str, almacen: AlmacenDeJobs = Depends(almacen_de)) -> TareaEstado:
         job = await almacen.obtener(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="No existe un job con ese ID (o ya expiró).")
         return job
 
-    @app.get("/health", tags=["salud"], summary="Estado del servicio")
-    async def salud(almacen: AlmacenDeJobs = Depends(almacen_de)) -> dict[str, object]:
+    @app.get(
+        "/health",
+        response_model=Salud,
+        tags=["salud"],
+        summary="Estado del servicio",
+        responses={503: {"model": ErrorApi, "description": "Redis no responde."}},
+    )
+    async def salud(almacen: AlmacenDeJobs = Depends(almacen_de)) -> Salud:
         await almacen.responde()  # si Redis no responde, el handler de RedisError devuelve 503
-        return {"estado": "ok", "redis": "ok", "tareas_en_cola": await almacen.largo_de_la_cola()}
+        return Salud(estado="ok", redis="ok", tareas_en_cola=await almacen.largo_de_la_cola())
 
     return app
 

@@ -118,7 +118,7 @@ async def test_health_informa_que_redis_responde(cliente: httpx.AsyncClient) -> 
 
 async def _job_esperando_aprobacion(almacen: AlmacenDeJobs) -> str:
     job_id = await almacen.crear(TAREA_VALIDA)
-    await almacen.actualizar(job_id, "WAITING_APPROVAL", aprobacion_pendiente={"tipo": "aprobacion_requerida", "acciones": [{"incidente_id": "INC-1001"}]})
+    await almacen.actualizar(job_id, "WAITING_APPROVAL", aprobacion_pendiente={"tipo": "aprobacion_requerida", "motivo": "m", "informe": "i", "acciones": [{"incidente_id": "INC-1001", "severidad": "critica", "destinatario": "Gerente Comercial", "exceso_horas": 5, "motivo": "x"}]})
     return job_id
 
 
