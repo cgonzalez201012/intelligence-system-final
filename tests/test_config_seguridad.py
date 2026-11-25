@@ -149,7 +149,7 @@ def test_el_docker_compose_es_yaml_valido_y_define_los_servicios() -> None:
     import yaml
 
     compose = yaml.safe_load((RAIZ / "docker-compose.yml").read_text(encoding="utf-8"))
-    assert set(compose["services"]) == {"redis", "phoenix", "api", "worker"}
+    assert set(compose["services"]) == {"redis", "phoenix", "indexador", "api", "worker"}
     assert compose["services"]["worker"]["command"] == ["python", "-m", "app.worker"]
     assert "ANTHROPIC_API_KEY" in compose["services"]["worker"]["environment"]
     assert compose["services"]["phoenix"]["environment"]["PHOENIX_ENABLE_AUTH"] == "false", "con login, Phoenix rechaza las trazas (401)"
@@ -157,7 +157,7 @@ def test_el_docker_compose_es_yaml_valido_y_define_los_servicios() -> None:
 
 def test_el_dockerfile_copia_solo_el_codigo_y_los_datos() -> None:
     dockerfile = (RAIZ / "Dockerfile").read_text(encoding="utf-8")
-    for linea in ("COPY orquestador ./orquestador", "COPY app ./app", "COPY data ./data"):
+    for linea in ("COPY orquestador ./orquestador", "COPY rag ./rag", "COPY app ./app", "COPY data ./data"):
         assert linea in dockerfile
     assert ".env" not in dockerfile.replace(".env.example", "")
 

@@ -1,5 +1,5 @@
-# Imagen unica para la API y el worker (cambia solo el comando, ver docker-compose.yml).
-FROM python:3.13-slim
+# Imagen unica para la API, el worker y el indexador del RAG (cambia solo el comando, ver docker-compose.yml).
+FROM python:3.13-slim  # misma version mayor con la que se desarrollo y probo el proyecto
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -12,6 +12,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY orquestador ./orquestador
+COPY rag ./rag
 COPY app ./app
 COPY data ./data
 

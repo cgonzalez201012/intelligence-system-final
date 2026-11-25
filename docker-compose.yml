@@ -1,5 +1,7 @@
-# Levanta todo con un comando:  docker compose up --build
+# Levanta todo con UN comando:  ./run.sh   (equivale a `make up`; valida el .env, construye, indexa el RAG y espera a que la API responda)
+# Sin el script:  docker compose up --build
 #
+#   indexador  crea el indice de Pinecone (si no existe) y sincroniza data/politicas; es idempotente y termina solo
 #   redis    cola de tareas + estado de los jobs + checkpoints de LangGraph (Redis 8 trae los modulos de busqueda y JSON)
 #   phoenix  dashboard de trazas en http://localhost:6006
 #   api      FastAPI en http://localhost:8000  (documentacion interactiva en /docs)
@@ -27,7 +29,7 @@ services:
       retries: 10
 
   phoenix:
-    image: arizephoenix/phoenix:latest
+    image: arizephoenix/phoenix:22.0.1   # version fija: con `latest` el comportamiento (login, API) puede cambiar sin avisar
     ports:
       - "6006:6006"   # interfaz web y receptor de trazas por HTTP (/v1/traces)
       - "4317:4317"   # receptor de trazas por gRPC
@@ -40,6 +42,17 @@ services:
     volumes:
       - phoenix-data:/mnt/data
 
+  indexador:
+    build: .
+    command: ["sh", "-c", "python -m rag.setup_index && python -m rag.ingest"]
+    restart: "no"
+    environment:
+      PINECONE_API_KEY: "${PINECONE_API_KEY:-}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      INDEX_NAME: "${INDEX_NAME:-}"
+      PINECONE_NAMESPACE: "${PINECONE_NAMESPACE:-}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-}"
+
   api:
     build: .
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -48,6 +61,11 @@ services:
     environment:
       <<: *ajustes
       REDIS_URL: redis://redis:6379
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     depends_on:
       redis:
         condition: service_healthy
@@ -84,6 +102,8 @@ services:
         condition: service_healthy
       phoenix:
         condition: service_started
+      indexador:
+        condition: service_completed_successfully   # el RAG tiene que estar cargado antes de aceptar trabajo
 
 volumes:
   redis-data:
