@@ -1,5 +1,5 @@
 # Atajos. Todos asumen el entorno virtual activado (source .venv/bin/activate).
-.PHONY: instalar test tipos todo infra api worker up detener verificar carga diagrama indexar
+.PHONY: evidencia instalar test tipos todo infra api worker up detener verificar carga diagrama indexar
 
 instalar:
 	pip install -r requirements.txt
@@ -37,6 +37,10 @@ detener:
 # Comprueba contra el Redis REAL: modulos, checkpoints, pausa y reanudacion (no usa la API de Anthropic)
 verificar:
 	python scripts/verificar_entorno.py
+
+# Las 6 corridas de evidencia (RAG, aprobación, rechazo, fuera de alcance) contra el sistema levantado con ./run.sh
+evidencia:
+	python scripts/corridas_evidencia.py
 
 # Prueba de carga: 5 peticiones concurrentes contra la API (necesita la API y el worker andando)
 carga:
