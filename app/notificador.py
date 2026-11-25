@@ -31,17 +31,34 @@ class NotificadorRedis:
         self._ttl = ttl_segundos
         self._bandeja = bandeja
 
+    async def _ya_esta_en_la_bandeja(self, job_id: str, incidente_id: str) -> bool:
+        for crudo in await self._redis.lrange(self._bandeja, 0, -1):
+            try:
+                aviso = json.loads(crudo)
+            except json.JSONDecodeError:
+                continue
+            if aviso.get("job_id") == job_id and aviso.get("incidente_id") == incidente_id:
+                return True
+        return False
+
     async def notificar(self, job_id: str, accion: AccionPropuesta) -> ResultadoAccion:
-        # Si el worker se cae despues de enviar y antes de guardar el checkpoint, al reanudar el nodo
-        # vuelve a correr: esta clave (SET NX) evita que el aviso salga dos veces.
-        es_nuevo = await self._redis.set(f"escalacion:{job_id}:{accion.incidente_id}", "1", nx=True, ex=self._ttl)
+        # Si el worker se cae y al reanudar este nodo vuelve a correr, el aviso no puede salir dos veces NI perderse.
+        # SET NX y LPUSH no son atomicos entre si, asi que la marca tiene dos estados: "pendiente" (se reservo el
+        # envio) y "enviado" (el aviso ya esta en la bandeja). Si se cayo entre los dos, al reintentar se mira la
+        # bandeja: si el aviso esta, no se repite; si no, se envia ahora.
+        clave = f"escalacion:{job_id}:{accion.incidente_id}"
+        es_nuevo = await self._redis.set(clave, "pendiente", nx=True, ex=self._ttl)
         if not es_nuevo:
-            return ResultadoAccion(
-                incidente_id=accion.incidente_id,
-                destinatario=accion.destinatario,
-                ejecutada=True,
-                detalle="Ya estaba escalado: no se envió un segundo aviso.",
-            )
+            enviado = await self._redis.get(clave) == "enviado"
+            if enviado or await self._ya_esta_en_la_bandeja(job_id, accion.incidente_id):
+                if not enviado:
+                    await self._redis.set(clave, "enviado", ex=self._ttl)
+                return ResultadoAccion(
+                    incidente_id=accion.incidente_id,
+                    destinatario=accion.destinatario,
+                    ejecutada=True,
+                    detalle="Ya estaba escalado: no se envió un segundo aviso.",
+                )
         aviso = {
             "job_id": job_id,
             "incidente_id": accion.incidente_id,
@@ -50,6 +67,7 @@ class NotificadorRedis:
             "enviado_en": ahora(),
         }
         await self._redis.lpush(self._bandeja, json.dumps(aviso, ensure_ascii=False))
+        await self._redis.set(clave, "enviado", ex=self._ttl)
         return ResultadoAccion(
             incidente_id=accion.incidente_id,
             destinatario=accion.destinatario,

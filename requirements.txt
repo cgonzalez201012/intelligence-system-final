@@ -27,8 +27,12 @@ langchain-text-splitters==1.2.0
 pypdf==7.1.1
 tiktoken==0.14.0
 
+# Solo para regenerar los PDF de data/politicas (scripts/generar_pdfs_politicas.py); la app no lo usa
+reportlab==5.1.2
+
 # Pruebas y chequeo de tipos (con esto alcanza para correr `pytest`)
 pytest==9.2.0
+pyyaml==6.0.4
 pytest-asyncio==1.4.1
 fakeredis==2.40.0
 mypy==2.4.1

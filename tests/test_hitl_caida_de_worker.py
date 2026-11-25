@@ -201,3 +201,36 @@ async def test_el_barrido_del_worker_rescata_y_el_mensaje_queda_listo_para_otro_
     await tarea
     assert (await almacen.obtener(job_id)).estado == "PENDING"  # type: ignore[union-attr]
     assert await almacen.tomar_de_la_cola(0.1) == MensajeDeCola(job_id=job_id, accion="reanudar")
+
+
+# --------------------------------------------------------------------------- el aviso no se duplica NI se pierde
+async def _accion():
+    from orquestador.state import AccionPropuesta
+
+    return AccionPropuesta(incidente_id="INC-1001", severidad="critica", destinatario="Gerente", exceso_horas=5, motivo="m")
+
+
+async def test_si_el_worker_cayo_tras_reservar_el_envio_y_antes_de_avisar_el_aviso_sale_al_reintentar(redis: Redis) -> None:
+    from app.notificador import BANDEJA_DE_SALIDA, NotificadorRedis
+
+    notificador = NotificadorRedis(redis, ttl_segundos=60)
+    await redis.set("escalacion:job1:INC-1001", "pendiente", ex=60)   # reservó el envío y murió antes del LPUSH
+    resultado = await notificador.notificar("job1", await _accion())
+    assert resultado.ejecutada and "registrado" in resultado.detalle
+    assert await redis.llen(BANDEJA_DE_SALIDA) == 1  # type: ignore[misc]  # el aviso NO se perdió
+    assert (await notificador.notificar("job1", await _accion())).detalle.startswith("Ya estaba escalado")
+    assert await redis.llen(BANDEJA_DE_SALIDA) == 1  # type: ignore[misc]  # y no se duplicó
+
+
+async def test_si_el_worker_cayo_tras_avisar_y_antes_de_confirmar_no_se_repite_el_aviso(redis: Redis) -> None:
+    import json
+
+    from app.notificador import BANDEJA_DE_SALIDA, NotificadorRedis
+
+    notificador = NotificadorRedis(redis, ttl_segundos=60)
+    await redis.set("escalacion:job1:INC-1001", "pendiente", ex=60)
+    await redis.lpush(BANDEJA_DE_SALIDA, json.dumps({"job_id": "job1", "incidente_id": "INC-1001"}))  # type: ignore[misc]
+    resultado = await notificador.notificar("job1", await _accion())
+    assert resultado.detalle.startswith("Ya estaba escalado")
+    assert await redis.llen(BANDEJA_DE_SALIDA) == 1  # type: ignore[misc]
+    assert await redis.get("escalacion:job1:INC-1001") == "enviado"  # quedó confirmado para las próximas veces
