@@ -1,24 +1,52 @@
-# API de producción y monitoreo activo: orquestador multi-agente de Gobierno de Datos
+# Sistema Intelligence de grado de producción: RAG híbrido + agentes con supervisor + API asíncrona
 
-Pre-entrega 7 (Módulo 7) del curso de AI Engineering. Tomé el orquestador multi-agente de la pre-entrega 6
-(un supervisor que delega en un investigador, un analista y un redactor, sobre datos **ficticios** de calidad de datos de
-Mercado Austral S.A.) y lo convertí en un servicio que se puede operar: una API asíncrona, estado y checkpoints en
-Redis, un paso de aprobación humana antes de ejecutar acciones con efecto externo, trazas en Arize Phoenix y una
-prueba de carga con 5 peticiones concurrentes.
+Entrega final del curso de AI Engineering. Integré en un solo servicio lo que fui construyendo módulo a módulo: un **RAG híbrido**
+(Pinecone + BM25) sobre las políticas de gobierno de datos de Mercado Austral S.A. (una empresa **ficticia**), un
+**orquestador multi-agente con supervisor** (LangGraph), una **API asíncrona** (FastAPI + worker + cola en Redis), **trazabilidad**
+completa en Arize Phoenix, **checkpoints** en Redis y un paso de **aprobación humana** antes de ejecutar acciones con efecto externo.
 
-## Cómo interpreté la consigna (decisiones)
+Se levanta con una instrucción (`./run.sh`) y lo probé de punta a punta en mi computadora: las 6 corridas de evidencia están
+en [docs/evidencia/corridas.md](docs/evidencia/corridas.md).
+
+## Decisiones principales
 
 | Tema | Qué decidí | Por qué |
 |---|---|---|
-| Cómo corre el agente | La API **no** corre el grafo: `POST /tasks` registra el job y lo encola en Redis; lo ejecuta un **worker** en otro proceso. | Un flujo de agentes tarda decenas de segundos. Con `BackgroundTasks` correría en el mismo proceso que la API: un reinicio perdería los jobs y no se podría escalar. Con cola y worker, la API responde en milisegundos y se pueden sumar workers. |
-| Redis | Una sola instancia con **tres usos**: registro del job (`job:{id}`), cola (`cola:tareas`) y **checkpoints de LangGraph** (`thread_id = job_id`). | Es lo que pide la consigna, y el `job_id` une todo: el job, su checkpoint y su traza. |
-| Estados | `PENDING` → `RUNNING` → (`WAITING_APPROVAL` →) `DONE` o `FAILED`. | El job se guarda como `PENDING` **antes** de encolarse, así que nunca hay un mensaje en la cola sin registro. Cualquier excepción del grafo lo deja en `FAILED` con el motivo; también si supera su tiempo máximo (`JOB_TIMEOUT_SEGUNDOS`, 300 s) o si su worker muere: cada worker barre cada 30 s los jobs que llevan en `RUNNING` más que el timeout y los pasa a `FAILED`, para que ningún cliente haga polling sin fin. |
-| Acción con efecto externo | **Escalar** un incidente crítico con el SLA vencido a su responsable. Es una acción *simulada* (queda anotada en la lista `escalaciones:enviadas` de Redis). | Es una acción que sale naturalmente del análisis que ya hacía el agente, y que conviene que revise una persona. |
-| Aprobación | El grafo se pausa con `interrupt` en el nodo `aprobacion_humana`; `POST /tasks/{id}/approve` entrega la decisión y el worker lo retoma. Si **rechazan**, el job termina en `DONE` sin ejecutar nada. | La pausa vive en el checkpoint de Redis, no en memoria: cualquier worker puede retomarlo, incluso después de un reinicio. |
-| Observabilidad | **Arize Phoenix** (se levanta con Docker Compose) con el estándar OpenInference. | Se engancha a LangGraph sin decorar funciones: cada nodo, cada llamada a Claude y cada herramienta es un span. |
-| Costo y p95 | Los calculo en el dashboard de Phoenix (tokens × precio del modelo; percentil 95 de la latencia de las trazas). El script de carga guarda además su propio resumen para contrastar. | La consigna pide las capturas del dashboard. |
+| Qué es el sistema | Un asistente de Gobierno de Datos que contesta con **dos fuentes**: los datos operativos (incidentes y reglas de calidad, vía herramientas JSON) y las **políticas escritas** (vía RAG). | Las dos fuentes responden preguntas distintas. "¿Cuántos incidentes críticos hay?" sale de los datos; "¿qué plazo fija la política?" sale de los documentos. Combinarlas es lo que hace útil al sistema. |
+| Cómo se integra el RAG | El RAG es **una herramienta más del investigador** (`buscar_en_politicas`), no un camino aparte. | El supervisor sigue decidiendo qué especialista interviene; el RAG no duplica la orquestación. Y como es una herramienta, Phoenix lo traza solo. |
+| RAG sin costo | **Pinecone Starter** (plan gratuito, índice serverless) y **embeddings de Gemini** (`gemini-embedding-001`, cuota gratuita). | La consigna pide un sistema real, no gastar en infraestructura. Con las dos cuotas gratuitas el indexado (36 fragmentos de 13 documentos) y las consultas del curso no cuestan nada. |
+| Recuperación híbrida | **BM25 + vectorial** combinados por rango recíproco (RRF, `EnsembleRetriever`). | Los códigos (`GD-POL-001`) y los términos exactos los encuentra mejor BM25; las paráfrasis, la búsqueda semántica. Juntas cubren ambos casos. |
+| Citas verificables | Cada fragmento trae su cita (`código (archivo, pág. N)`) y un validador **rechaza** un informe que cite un código `GD-XXX-NNN` que el investigador no recuperó. El resultado del job lista `fuentes_citadas`. | Un RAG que puede inventar una fuente es peor que no tenerlo. La validación es determinista, no depende de que el modelo "se acuerde". |
+| Cómo corre el agente | La API **no** corre el grafo: `POST /tasks` registra el job y lo encola en Redis; lo ejecuta un **worker** en otro proceso. | Un flujo de agentes tarda decenas de segundos. Con cola y worker, la API responde en milisegundos, un reinicio no pierde jobs y se pueden sumar workers. |
+| Async de verdad | Nada bloquea el *event loop*: las llamadas al modelo, a Redis y al RAG son `async`; el cliente de Pinecone (síncrono) corre en un hilo (`asyncio.to_thread`). | Una llamada bloqueante dentro de la API congela a todos los demás pedidos. Encontré que `langchain-pinecone` comparte una sesión HTTP entre bucles de eventos y la aislé en [rag/vectorstore.py](rag/vectorstore.py). |
+| Contratos con Pydantic | Entradas y salidas de la API, de las herramientas y del RAG son modelos Pydantic estrictos (`extra="forbid"`, límites de largo, `Literal`). El esquema OpenAPI exportado está en [docs/openapi.json](docs/openapi.json) y un test falla si el código lo cambia sin regenerarlo. | La validación en los bordes evita que un dato mal formado llegue al modelo, y los errores salen con un formato único (`ErrorApi`). |
+| Estados del job | `PENDING` → `RUNNING` → (`WAITING_APPROVAL` →) `DONE` o `FAILED`. El job se guarda como `PENDING` **antes** de encolarse. | Nunca hay un mensaje en la cola sin registro. Cualquier excepción, timeout o worker muerto termina en `FAILED` con el motivo. |
+| Persistencia | **Checkpointer de Redis** (`RedisSaver`): `thread_id = job_id`. Redis guarda además el registro del job y la cola. | El `job_id` une todo: el job, su checkpoint y su traza. La pausa de aprobación vive en Redis, no en memoria. |
+| Aprobación humana | El grafo se pausa con `interrupt` en `aprobacion_humana`; `POST /tasks/{id}/approve` entrega la decisión y el worker retoma. Si rechazan, el job termina `DONE` sin ejecutar nada. | Escalar un incidente crítico es una acción con efecto externo (simulada): conviene que la revise una persona. |
+| Observabilidad | **Arize Phoenix** con OpenInference. Cada nodo, llamada al modelo, herramienta y recuperación es un *span*; todo cuelga de **una** traza por job. | Se engancha a LangGraph sin decorar funciones. Intenté primero un span manual para el RAG y quedaba huérfano en otra traza, así que dejé el automático. |
+| Un solo cliente de modelo | Uso un único proveedor (Anthropic) a través de `crear_llm` en [orquestador/ejecucion.py](orquestador/ejecucion.py). No llevé el cliente multi-proveedor de la pre-entrega 1. | Ese cliente existía para comparar proveedores; acá el proveedor es una decisión de despliegue (`MODELO_LLM`), no una variable del sistema. `crear_llm` conserva lo que sí importa en producción: *timeout* de 60 s y dos reintentos acotados, para no esperar ni reintentar sin fin. |
+| Despliegue | Docker Compose con versiones fijas (Redis 8.8.4, Phoenix 22.0.1, Python 3.13) y [run.sh](run.sh): valida el `.env`, construye, indexa el RAG y espera a que la API responda. | Una sola instrucción y un resultado verificable. Redis 8 trae los módulos de búsqueda y JSON que usa el checkpointer. |
 
-## Cómo está armado
+## Arquitectura
+
+```mermaid
+flowchart LR
+    C([Cliente]) -->|POST /tasks| API[API FastAPI]
+    C -->|GET /tasks/id| API
+    C -->|POST /tasks/id/approve| API
+    API -->|"job PENDING + cola"| R[("Redis<br/>jobs, cola y checkpoints")]
+    W[Worker] -->|toma el job| R
+    W --> G["Grafo LangGraph<br/>supervisor + especialistas"]
+    G <-->|checkpoints| R
+    G -->|llamadas al modelo| LLM[Claude]
+    G -->|buscar_en_politicas| RAG["RAG híbrido<br/>BM25 + vectorial"]
+    G -->|herramientas JSON| D[("Incidentes y<br/>reglas de calidad")]
+    RAG --> P[("Pinecone<br/>namespace mercado-austral")]
+    RAG --> E[Embeddings Gemini]
+    G -.->|trazas OpenInference| PH[Phoenix]
+```
+
+## Flujo del grafo de agentes
 
 ```mermaid
 ---
@@ -58,182 +86,158 @@ graph TD;
 
 El mismo diagrama, generado por LangGraph a partir del grafo real, está en [docs/grafo.mmd](docs/grafo.mmd) y como imagen en
 [docs/grafo.png](docs/grafo.png) (`make diagrama` los regenera; un test falla si el grafo cambia y el diagrama no).
-Hasta `validacion` es el núcleo de la pre-entrega 6 sin cambios de lógica; lo nuevo es lo que sigue a `FINISH`:
-`proponer_acciones` calcula qué incidentes críticos vencidos hay que escalar, `aprobacion_humana` pausa el grafo y
-`ejecutar_acciones` solo corre si hay una aprobación registrada (tiene una segunda guarda propia).
 
+- **supervisor**: decide qué especialista sigue (o `FINISH`). No contesta: enruta.
+- **investigador**: consulta los datos operativos y busca en las políticas (RAG). Devuelve `Hallazgos` con los incidentes y los fragmentos citados.
+- **analista**: prioriza y calcula vencimientos sobre lo que encontró el investigador. Se omite si la consulta es solo de políticas.
+- **redactor**: escribe la respuesta usando únicamente lo recuperado.
+- **validacion**: nodo **determinista** (sin modelo) que revisa el informe: cubre los incidentes, no cita políticas que no se recuperaron, respeta el ranking. Si falla, el supervisor reintenta (con tope).
+- **proponer_acciones → aprobacion_humana → ejecutar_acciones**: calcula qué incidentes críticos vencidos hay que escalar, pausa el grafo y solo ejecuta si hay una aprobación registrada (el nodo ejecutor tiene una segunda guarda propia).
+
+## Cómo levantarlo (una instrucción)
+
+Necesitás Docker Desktop abierto y tres claves gratuitas o propias: Anthropic, Pinecone y Google AI Studio (Gemini).
+
+```bash
+cp .env.example .env     # completá ANTHROPIC_API_KEY, PINECONE_API_KEY y GOOGLE_API_KEY (el .env está en .gitignore)
+./run.sh
 ```
-POST /tasks ──► job:{id} = PENDING ──► cola:tareas ──► worker ──► grafo (checkpoints en Redis)
-                      ▲                                   │             │
-GET /tasks/{id} ──────┘ (estado, resultado, tokens)       │             └─ interrupt ─► WAITING_APPROVAL
-POST /tasks/{id}/approve ──► decisión + mensaje "reanudar" ┘                               │
-                                                             worker retoma con Command(resume=decisión)
-```
 
-### Estructura del repositorio
+[run.sh](run.sh) comprueba Docker y el `.env`, construye las imágenes, levanta Redis, Phoenix, el indexador del RAG (que crea el índice en Pinecone si falta y
+sincroniza `data/politicas`), la API y el worker, y espera a que la API responda. Al final muestra las direcciones:
 
-| Ruta | Qué hay |
+| Qué | Dónde |
 |---|---|
-| [app/main.py](app/main.py) | La API FastAPI: `POST /tasks`, `GET /tasks/{id}`, `GET /health`. |
-| [app/hitl.py](app/hitl.py) | La aprobación humana: nodos del grafo y `POST /tasks/{id}/approve`. |
-| [app/worker.py](app/worker.py) | El worker: toma jobs de la cola, corre el grafo, publica el resultado o el `FAILED`. |
-| [app/graph.py](app/graph.py) | Arma el grafo de producción y abre el checkpointer de Redis. |
-| [app/observability.py](app/observability.py) | Conexión a Phoenix y etiquetas de cada traza. |
-| [app/jobs.py](app/jobs.py), [app/schemas.py](app/schemas.py), [app/settings.py](app/settings.py), [app/notificador.py](app/notificador.py) | Estado de los jobs en Redis, contratos de la API, configuración y la acción simulada. |
-| [orquestador/](orquestador/) | El núcleo multi-agente de la pre-entrega 6 (supervisor, especialistas, validación, herramientas). |
-| [scripts/](scripts/) | [carga.py](scripts/carga.py) es la prueba de carga; [verificar_entorno.py](scripts/verificar_entorno.py) comprueba el Redis real; [corrida_real.sh](scripts/corrida_real.sh) y [chequeo_inicial.sh](scripts/chequeo_inicial.sh) arman todo y dejan sus registros en `docs/evidencia/`. |
-| [tests/](tests/) | Pruebas con modelos falsos (no gastan la API de Anthropic) y Redis simulado. |
-| [docker-compose.yml](docker-compose.yml), [Dockerfile](Dockerfile), [requirements.txt](requirements.txt), [.env.example](.env.example) | Cómo levantarlo. |
-| `screenshots/`, [docs/evidencia/](docs/evidencia/) | Evidencia: capturas de Phoenix (trazas, costo por ejecución y p95) y los registros de la corrida real. |
+| API y documentación interactiva | http://localhost:8000/docs |
+| Trazas (Arize Phoenix) | http://localhost:6006 |
+| Apagar todo | `./run.sh --detener` |
 
-## Cómo levantarlo
+Para más capacidad: `docker compose up -d --scale worker=2`. También existen atajos en el [Makefile](Makefile) (`make up`, `make detener`, `make indexar`, `make evidencia`).
 
-Necesitás Docker y una clave de la API de Anthropic (y Python 3.12 o más nuevo si usás la opción B).
-
-```bash
-cp .env.example .env        # y pegá tu ANTHROPIC_API_KEY en .env (el archivo está en .gitignore)
-```
-
-### Opción A: todo en contenedores (un comando)
-
-```bash
-docker compose up --build
-```
-
-Levanta Redis, Phoenix (http://localhost:6006), la API (http://localhost:8000, documentación interactiva en `/docs`) y un worker.
-Para más capacidad: `docker compose up --build --scale worker=2`.
-
-### Opción B: infraestructura en Docker, API y worker en tu terminal (para desarrollar)
+### Alternativa para desarrollar (infraestructura en Docker, API y worker en la terminal)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 docker compose up -d redis phoenix     # Redis 8 y Phoenix
+python -m rag.setup_index && python -m rag.ingest   # crea el índice en Pinecone y carga las políticas
 python scripts/verificar_entorno.py    # (opcional) comprueba Redis, checkpoints, pausa y reanudación; no gasta API
 
-# en una terminal:
-uvicorn app.main:app --port 8000
-# en otra terminal:
-python -m app.worker
+uvicorn app.main:app --port 8000       # en una terminal
+python -m app.worker                   # en otra terminal
 ```
 
 > **Redis tiene que ser 8+ o Redis Stack.** El checkpointer de LangGraph usa los módulos de búsqueda y JSON, que Redis 8 trae
-> incluidos. Si usás otro Redis, el worker se detiene al arrancar con un mensaje que lo explica.
+> incluidos. Con otra versión el worker se detiene al arrancar con un mensaje que lo explica.
 
 ## Probarlo a mano
 
 ```bash
 # 1) Encolar una tarea: responde al instante con el job_id (202)
 curl -s -X POST localhost:8000/tasks -H 'content-type: application/json' \
-  -d '{"tarea": "Priorizá los incidentes críticos abiertos del maestro de artículos."}'
-# {"job_id":"…","estado":"PENDING","consultar_en":"/tasks/…"}
+  -d '{"tarea": "Priorizá los incidentes críticos abiertos del maestro de artículos y citá la política que fija sus plazos."}'
 
 # 2) Consultar el estado (repetir hasta que cambie)
 curl -s localhost:8000/tasks/<job_id>
 
-# 3) Si quedó en WAITING_APPROVAL, la respuesta trae en "aprobacion_pendiente" las acciones a revisar.
-#    Aprobar (o poner "aprobada": false para rechazar):
+# 3) Si quedó en WAITING_APPROVAL, "aprobacion_pendiente" trae las acciones a revisar. Aprobar (o "aprobada": false):
 curl -s -X POST localhost:8000/tasks/<job_id>/approve -H 'content-type: application/json' \
   -d '{"aprobada": true, "revisor": "Cris", "comentario": "Escalar ambos"}'
 
-# 4) Cuando esté en DONE: "resultado" tiene el informe y qué acciones se ejecutaron
-docker compose exec redis redis-cli LRANGE escalaciones:enviadas 0 -1     # los avisos "enviados" (simulados)
+# 4) En DONE, "resultado" trae el informe, las acciones ejecutadas y "fuentes_citadas" (las políticas que el informe nombra)
 ```
 
-Los errores más comunes devuelven códigos claros: `422` si la tarea es inválida, `404` si el job no existe (o el ID no tiene el formato de un `job_id`), `409` si se aprueba
-un job que no está esperando aprobación (o ya recibió una decisión), `503` si Redis no responde.
+Errores claros: `422` si la tarea es inválida, `404` si el job no existe, `409` si se aprueba un job que no espera aprobación o que ya recibió una decisión, `503` si Redis no responde.
 
-## Reproducir la prueba de carga (5 peticiones concurrentes)
+## RAG: cómo funciona
 
-Con la API y el worker andando (opción A o B):
+- **Fuentes**: 13 documentos ficticios en [data/politicas/](data/politicas/) (políticas, procedimientos, roles, glosarios; Markdown y PDF), partidos en 36 fragmentos con su código de documento, archivo y página.
+- **Indexado**: `python -m rag.ingest` es idempotente: sincroniza el índice `rag-gobierno-de-datos` (1536 dimensiones, coseno, namespace `mercado-austral`) y reindexa solo lo que cambió. En `./run.sh` lo hace un contenedor de un solo uso antes de arrancar el worker.
+- **Consulta**: `buscar_en_politicas(consulta, categoria?, k)` combina BM25 y búsqueda vectorial. Ante un límite de cuota del proveedor de embeddings reintenta con espera no bloqueante.
+- **Trazas**: cada recuperación aparece como un *span* `RETRIEVER` con la consulta y los documentos devueltos (captura más abajo).
 
-```bash
-python scripts/carga.py --precio-entrada 1 --precio-salida 5
-```
+## Evidencia: las 6 corridas contra el sistema real
 
-El script dispara 5 `POST /tasks` **a la vez**, consulta cada job hasta que termina y muestra, por job, cuánto tardó la API en
-aceptarlo, la latencia total y los tokens; al final calcula el **p50 y el p95** y el costo promedio por ejecución, y guarda el resumen en
-`docs/evidencia/carga-<fecha>.json`. Los precios (USD por millón de tokens, aquí los de Claude Haiku 4.5) son opcionales: sin ellos
-el script igual mide latencias y tokens, y el costo lo calcula Phoenix. Por defecto usa 5 consultas sobre el maestro de sucursales, que no tiene incidentes críticos y por lo
-tanto no se pausa. Con `--perfil con-aprobacion` usa consultas con incidentes críticos y el script aprueba cada pausa automáticamente.
+Las generé con `make evidencia` ([scripts/corridas_evidencia.py](scripts/corridas_evidencia.py)) sobre el sistema levantado con `./run.sh`. El detalle completo está en
+[docs/evidencia/corridas.md](docs/evidencia/corridas.md) y [docs/evidencia/corridas.json](docs/evidencia/corridas.json).
 
-Para repetir exactamente lo que hice yo, con Phoenix limpio (así el dashboard muestra solo las 5 ejecuciones):
+| # | Caso | Resultado |
+|---|---|---|
+| 1 | Solo políticas (RAG) | Respondió con las citas GD-POL-001 y GD-ROL-001, sin acciones. |
+| 2 | Incidentes críticos + política, **aprobado** | Se pausó en `aprobacion_humana`; al aprobar se ejecutaron 2 escalamientos. |
+| 3 | Incidentes críticos, **rechazado** | Terminó sin ejecutar ninguna acción. |
+| 4 | Sin críticos | No pidió aprobación; citó la política. |
+| 5 | Glosario (RAG) | Citó GD-GLO-001 y GD-ROL-001. |
+| 6 | Fuera de alcance | Se negó correctamente, sin consultar herramientas. |
 
-```bash
-docker compose down -v                 # borra los datos de Redis y de Phoenix
-bash scripts/corrida_real.sh carga     # levanta todo y lanza las 5 peticiones
-bash scripts/corrida_real.sh hitl      # una tarea con aprobación humana
-```
+Las 8 trazas (6 corridas más las 2 reanudaciones tras la aprobación) quedaron registradas en Phoenix, todas en estado OK, por un costo total de unos USD 0,30:
 
-Después, en Phoenix (http://localhost:6006), proyecto `orquestador-gobierno-de-datos`: la pestaña *Metrics* muestra el p95 y el costo; *Traces*, cada ejecución
-con su latencia y su costo; *Sessions*, las trazas agrupadas por `job_id`.
+- [Lista de trazas de las 6 corridas](screenshots/final-1-trazas-de-las-6-corridas.jpg)
+- [Recuperación híbrida de RAG dentro de una traza](screenshots/final-2-rag-recuperacion-hibrida.jpg): `buscar_en_politicas` → `EnsembleRetriever` → BM25 + vectorial, con la consulta y los fragmentos devueltos.
+- [Traza con aprobación humana](screenshots/final-3-traza-con-aprobacion-humana.jpg): del investigador al redactor, `validacion`, `proponer_acciones` y la pausa en `aprobacion_humana`.
 
 ## Observabilidad
 
-Cada ejecución es una traza con un span por nodo del grafo, por llamada a Claude (con sus tokens de entrada y salida) y por herramienta.
-Los spans llevan `session.id = job_id`, el `job_id` en los metadatos y la versión de los prompts (`VERSION_PROMPTS`), así que puedo
-llegar de un job de la API a su traza y relacionar un cambio de comportamiento con un cambio de prompt. Si Phoenix no está disponible, el worker
-sigue funcionando sin trazas (lo avisa en el log): el monitoreo no tiene que tirar abajo lo que monitorea.
+Cada ejecución es una traza con un span por nodo del grafo, por llamada al modelo (con sus tokens), por herramienta y por recuperación. Los spans llevan
+`session.id = job_id`, el `job_id` en los metadatos y la versión de los prompts (`VERSION_PROMPTS`), así que puedo llegar de un job de la API a su traza y
+relacionar un cambio de comportamiento con un cambio de prompt. Si Phoenix no está disponible, el worker sigue sin trazas (lo avisa en el log): el monitoreo no
+tiene que tirar abajo lo que monitorea. En Phoenix, *Sessions* agrupa por `job_id` las dos trazas de un job con aprobación (hasta la pausa y desde la reanudación).
 
-Dos detalles que me costó descubrir en la corrida real: la imagen actual de Phoenix pide login y rechaza las trazas con un 401, así que en el Compose lo dejé sin autenticación
-(`PHOENIX_ENABLE_AUTH=false`, solo para uso local); y el SDK de Anthropic 2.x emite por su cuenta un span extra por cada llamada, que quedaba como una
-traza suelta y falseaba el p95, así que lo apago con `ANTHROPIC_OPEN_TELEMETRY=false` (ver [app/observability.py](app/observability.py)).
+Dos detalles de la corrida real: la imagen actual de Phoenix pide login y rechaza las trazas con un 401, así que en el Compose quedó sin autenticación
+(`PHOENIX_ENABLE_AUTH=false`, solo uso local); y el SDK de Anthropic 2.x emite por su cuenta un span extra por llamada que quedaba como traza suelta, así que lo apago con
+`ANTHROPIC_OPEN_TELEMETRY=false` (ver [app/observability.py](app/observability.py)).
 
-## Lectura del dashboard (5 peticiones concurrentes)
+## Robustez y recuperación
 
-Corrí la prueba sobre un Phoenix recién creado, así que el dashboard muestra **solo** las 5 ejecuciones
-(5 trazas, 66 llamadas a Claude, todas en `DONE`). Los comandos y los resúmenes completos están en
-[docs/evidencia/](docs/evidencia/); las capturas, en `screenshots/`.
+- **Worker que se cae**: el checkpoint queda en Redis. Si se interrumpe una **reanudación** (después de aprobar), un barrido la reencola de forma atómica, hasta 2 veces. Si se interrumpe una primera ejecución, el job pasa a `FAILED` con el motivo al superar el tiempo máximo (`JOB_TIMEOUT_SEGUNDOS`, 300 s), para que ningún cliente consulte para siempre.
+- **Aviso de escalamiento sin duplicados ni pérdidas**: la marca tiene dos estados (`pendiente` / `enviado`); si el worker cae entre reservar el envío y enviarlo, al reintentar se mira la bandeja y el aviso ni se repite ni se pierde.
+- **Apagado ordenado**: con `docker compose stop` el worker espera hasta 6 minutos a que terminen los jobs en curso.
+- **Citas**: un informe que cite una política que no se recuperó es rechazado por la validación y reintentado.
 
-| | Resultado | Dónde se ve |
-|---|---|---|
-| Latencia p95 | **35,31 s** (p50 32,69 s, máxima 35,60 s) | [captura del p95](screenshots/p95-latencia-5-concurrentes.png), pestaña *Metrics* |
-| Costo por ejecución | **USD 0,04 a 0,05** cada una; unos **USD 0,24** las cinco (USD 0,16 de entrada y USD 0,08 de salida) | [tabla por traza](screenshots/costo-por-ejecucion-tabla.png) y [costo total](screenshots/costo-total-5-concurrentes.png) |
-| Árbol de una ejecución | `supervisor`, `investigador`, `analista`, `redactor`, `validacion` y las herramientas, con cada llamada a Claude | [traza de un job](screenshots/traza-arbol-de-un-job.png) |
-| Pausa y reanudación | La tarea se pausa en `aprobacion_humana` y, al aprobarla, se retoma y ejecuta las acciones (dos trazas de la misma sesión) | [pausa](screenshots/traza-hitl-1-pausa.png) y [reanudación](screenshots/traza-hitl-2-reanudacion.png) |
+Los escenarios de caída están cubiertos en [tests/test_hitl_caida_de_worker.py](tests/test_hitl_caida_de_worker.py).
 
-El script de carga mide por su lado: p50 33,18 s y p95 36,20 s (desde que se envía hasta que el job termina, con
-la espera en la cola y el sondeo de cada segundo) y USD 0,0472 por ejecución con los precios de Claude Haiku 4.5 (USD 1 por millón
-de tokens de entrada y USD 5 por millón de salida). Los promedios de tokens coinciden con los de Phoenix (34.967 por ejecución); la
-diferencia en el p95 es de método (Phoenix interpola y mide solo la traza) y de punto de medición.
+## Prueba de carga (medida en la pre-entrega 7, antes de sumar el RAG)
 
-**Qué leo en esos números**
-
-- **Correr 5 a la vez no las hizo más lentas.** Un job solo tardó 33,2 s y el p50 de los cinco fue 32,7 s. La API aceptó cada petición en
-  0,01 s como máximo: no espera al modelo, y el worker corre los 5 jobs en paralelo.
-- **La latencia sale de la cadena de llamadas, no de las herramientas.** Cada ejecución encadena unas 13 llamadas a Claude en serie
-  (66 en total entre las 5, de 2,4 s en promedio y hasta 4,4 s); las herramientas (consulta de incidentes, cálculo de SLA) tardan 2 ms en promedio y 4 ms como máximo
-  (64 llamadas medidas en Phoenix, con las dos pruebas).
-  Para bajar el p95 habría que reducir la cantidad de llamadas encadenadas, no acelerar las herramientas.
-- **Dónde se consumen los tokens:** investigador **36 %**, analista **31 %**, supervisor **26 %** y redactor **7 %** (174.836 tokens entre las 5). Dos tercios del
-  costo son tokens de **entrada**: el contexto que se vuelve a enviar en cada llamada pesa más que lo que Claude escribe.
-- **Lo que haría con esto (hipótesis, no las probé):** recortar el contexto que reciben el investigador y el analista, y probar el caché de prompts
-  para las partes que no cambian. Son las dos palancas que atacan donde está el costo.
-- **Cuidado con el p95:** con 5 muestras es casi el máximo. Sirve para ver que la cola de la distribución no se dispara, no para prometer un
-  SLA; para eso haría falta una prueba con decenas o cientos de peticiones.
+Con la API y el worker andando: `python scripts/carga.py --precio-entrada 1 --precio-salida 5` dispara 5 `POST /tasks` a la vez, consulta cada job hasta que termina y calcula
+p50, **p95** y el **costo por ejecución**. Medido sobre la versión sin RAG: p95 de **35,31 s** (p50 32,69 s) y entre USD 0,04 y 0,05 por ejecución
+([captura del p95](screenshots/p95-latencia-5-concurrentes.png), [costo por ejecución](screenshots/costo-por-ejecucion-tabla.png)). Correr 5 a la vez no las hizo más
+lentas: la API acepta cada pedido en milisegundos y el worker los corre en paralelo. La latencia sale de la cadena de llamadas al modelo, no de las herramientas.
+No repetí esta medición con el RAG; las 6 corridas de arriba son la evidencia de la versión final (entre 12 y 49 s por corrida). Con 5 muestras el p95 es casi el máximo:
+sirve para ver que la cola no se dispara, no para prometer un SLA.
 
 ## Pruebas
 
 ```bash
-pytest          # sin claves ni Redis: usa modelos falsos y Redis simulado
-mypy .          # tipos
+pytest          # sin claves ni Redis: modelos falsos y Redis simulado
+mypy app orquestador rag scripts
 ```
 
-Las pruebas cubren, entre otras cosas: que la API devuelve el `job_id` sin esperar al grafo y sigue respondiendo con el worker ocupado,
-que 5 jobs corren *a la vez* (no uno tras otro), que cualquier excepción deja el job en `FAILED`, que no se ejecuta ninguna acción sin aprobación,
-que una aprobación no se puede dar dos veces, que el estado sobrevive a la serialización de Redis con sus modelos, y que las trazas
-tienen un span por nodo y no mezclan jobs concurrentes. Para correr las pruebas de la cola y del almacén contra un Redis real:
-`REDIS_URL_TEST=redis://localhost:6379 pytest`.
+Más de 550 pruebas, sin gastar la API: contratos de la API y del RAG, integridad de las citas, que la API no espere al grafo, que 5 jobs corran en paralelo, que no se ejecute ninguna
+acción sin aprobación, escenarios de caída del worker, forma de las trazas (un solo árbol por job), y el despliegue (Dockerfile, Compose y `run.sh`). Para correr las pruebas de la cola
+contra un Redis real: `REDIS_URL_TEST=redis://localhost:6379 pytest` (**borra esa base**, usá una de prueba).
+
+## Estructura del repositorio
+
+| Ruta | Qué hay |
+|---|---|
+| [app/](app/) | La API ([main.py](app/main.py)), el worker ([worker.py](app/worker.py)), el grafo de producción ([graph.py](app/graph.py)), la aprobación humana ([hitl.py](app/hitl.py)), la observabilidad ([observability.py](app/observability.py)), el estado de los jobs, los contratos y la acción simulada. |
+| [orquestador/](orquestador/) | Supervisor, especialistas, validación determinista, estado y herramientas. |
+| `rag/` | Ingesta, índice de Pinecone, recuperación híbrida y esquemas del RAG. |
+| [data/](data/) | Políticas ficticias (`politicas/`) y los datos operativos en JSON. |
+| [scripts/](scripts/) | Carga, corridas de evidencia, verificación del entorno, exportación del OpenAPI y del diagrama. |
+| [tests/](tests/) | Las pruebas. |
+| [docs/](docs/), `screenshots/` | Diagramas, OpenAPI, evidencia y capturas. |
+| [docker-compose.yml](docker-compose.yml), [Dockerfile](Dockerfile), [run.sh](run.sh), [requirements.txt](requirements.txt), [.env.example](.env.example) | Despliegue y configuración. |
 
 ## Límites que conozco
 
-- **Si el worker se cae a mitad de un job**, el job no se retoma solo: a los 6 minutos (timeout + 60 s) un barrido lo pasa a `FAILED` con el motivo y el cliente tiene que volver a enviarlo. El checkpoint sí queda en Redis, así que reencolarlo automáticamente sería posible. Con `docker compose stop` el worker espera hasta 2 minutos a que terminen los jobs en curso, así que un apagado normal no los pierde. Si el worker cae justo después de sacar un mensaje de la cola y antes de marcarlo `RUNNING`, el job queda en `PENDING` (ventana de milisegundos; el barrido solo mira `RUNNING`).
-- **No hay vencimiento para las aprobaciones**: un job puede esperar indefinidamente (hasta que expire por TTL, 7 días por defecto).
-- **El escalamiento es simulado**: queda anotado en Redis, no se envía ningún mail ni mensaje.
-- **No hay autenticación** en la API ni identidad verificada del revisor (`revisor` es texto libre). Para producción real iría detrás de un proveedor de identidad.
-- **Con 5 muestras el p95 es simplemente la latencia más alta** (método de rango más cercano). Es el número que pide la consigna, pero estadísticamente informa poco.
-- **Probado solo con Anthropic.** Bajo carga real podría haber respuestas 429 del proveedor; el job quedaría en `FAILED` con el motivo.
-- La imagen de Phoenix en el Compose está en `latest`, y para reproducibilidad estricta habría que fijarle una versión; en la que usé hubo que desactivar el login (ver más arriba).
-- Una tarea con aprobación genera **dos** trazas en Phoenix (hasta la pausa y desde la reanudación); se ven juntas en *Sessions*.
-- Los datos (Mercado Austral S.A.) son ficticios.
+- **No hay autenticación**: `POST /tasks/{id}/approve` lo puede llamar cualquiera que llegue a la API, y `revisor` es texto libre. Para producción real iría detrás de un proveedor de identidad.
+- **Redis expone el puerto 6379 sin contraseña** en el Compose, pensado para uso local. En un servidor habría que cerrarlo o protegerlo.
+- **El escalamiento es simulado**: queda anotado en Redis (`escalaciones:enviadas`), no se envía ningún mail ni mensaje.
+- **El RAG depende de cuotas gratuitas** (Pinecone Starter y Gemini). Bajo carga real podrían aparecer respuestas 429: el sistema reintenta con espera acotada y, si no alcanza, el job queda en `FAILED` con el motivo.
+- **No hay vencimiento para las aprobaciones**: un job puede esperar indefinidamente (hasta el TTL, 7 días por defecto).
+- **Probado con un solo proveedor de modelo** (Anthropic) y un solo corpus de 13 documentos; no medí la calidad de la recuperación con un conjunto de preguntas de referencia.
+- **La prueba de carga es de la versión sin RAG** (ver arriba).
+- **Phoenix corre sin login** en el Compose (solo local).
+- Los datos y las políticas de Mercado Austral S.A. son ficticios.
