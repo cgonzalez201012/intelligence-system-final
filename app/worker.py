@@ -75,6 +75,8 @@ def describir_falla(error: Exception) -> str:
         return "El grafo superó su límite de pasos sin cerrar la tarea."
     if estado in (401, 403):
         return f"El proveedor del modelo rechazó las credenciales (HTTP {estado}). Revisá ANTHROPIC_API_KEY."
+    if "credit balance" in str(error).lower():  # Anthropic responde 400 cuando se acaba el saldo
+        return "La cuenta de Anthropic no tiene saldo suficiente (HTTP 400). Cargá crédito en Plans & Billing y volvé a enviar la tarea."
     if estado in (400, 404):
         return f"El proveedor del modelo rechazó la solicitud (HTTP {estado}). Revisá el nombre del modelo."
     detalle = str(error).strip().splitlines()[0][:200] if str(error).strip() else ""

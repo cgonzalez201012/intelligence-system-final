@@ -338,3 +338,9 @@ async def test_al_detenerlo_el_worker_deja_terminar_los_jobs_en_curso(
     await asyncio.wait_for(worker, timeout=5)
     job = await almacen.obtener(job_id)
     assert job is not None and job.estado == "DONE"
+
+
+def test_describir_falla_distingue_la_falta_de_saldo_de_un_modelo_mal_escrito() -> None:
+    sin_saldo = describir_falla(ErrorDeApi("Error code: 400 - Your credit balance is too low to access the Anthropic API.", 400))
+    assert "saldo" in sin_saldo and "nombre del modelo" not in sin_saldo
+    assert "nombre del modelo" in describir_falla(ErrorDeApi("model: claude-xyz not found", 400))
