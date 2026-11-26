@@ -1,7 +1,7 @@
-"""El orquestador multi-agente del modulo 6 + la etapa de aprobacion humana + el checkpointer de Redis.
+"""El orquestador multi-agente + la etapa de aprobación humana + el checkpointer de Redis.
 
 El nucleo (supervisor, investigador, analista, redactor, validacion) vive en `orquestador/` tal
-como quedo en la pre-entrega 6. Aca solo se arma la version de produccion:
+como lo definí. Acá solo se arma la versión de producción:
 
     START -> supervisor <-> (investigador | analista | redactor) -> validacion -> supervisor
                  |

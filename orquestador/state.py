@@ -264,7 +264,7 @@ class ResultadoValidacion(_Modelo):
     paso: int
 
 
-# ---------- Parcelas de la etapa de aprobacion humana (pre-entrega 7) ----------
+# ---------- Parcelas de la etapa de aprobación humana ----------
 
 
 class AccionPropuesta(_Modelo):

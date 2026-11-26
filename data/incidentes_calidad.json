@@ -1,5 +1,5 @@
 {
-  "aviso": "Datos FICTICIOS de la empresa ficticia Mercado Austral S.A., armados para la pre-entrega 6 del curso. Simulan una base de incidentes de calidad de datos.",
+  "aviso": "Datos FICTICIOS de la empresa ficticia Mercado Austral S.A., armados para el curso de AI Engineering. Simulan una base de incidentes de calidad de datos.",
   "fecha_corte": "2026-10-31",
   "sla_horas_habiles": {
     "critica": 4,

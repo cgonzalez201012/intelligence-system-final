@@ -68,7 +68,7 @@ async def correr(
     return resultado
 
 
-# ---------- Capa de produccion (pre-entrega 7) ----------
+# ---------- Capa de produccion (capa de producción) ----------
 
 
 @pytest.fixture

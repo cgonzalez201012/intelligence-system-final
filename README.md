@@ -23,8 +23,8 @@ en [docs/evidencia/corridas.md](docs/evidencia/corridas.md).
 | Estados del job | `PENDING` → `RUNNING` → (`WAITING_APPROVAL` →) `DONE` o `FAILED`. El job se guarda como `PENDING` **antes** de encolarse. | Nunca hay un mensaje en la cola sin registro. Cualquier excepción, timeout o worker muerto termina en `FAILED` con el motivo. |
 | Persistencia | **Checkpointer de Redis** (`AsyncRedisSaver`): `thread_id = job_id`. Redis guarda además el registro del job y la cola. | El `job_id` une todo: el job, su checkpoint y su traza. La pausa de aprobación vive en Redis, no en memoria. |
 | Aprobación humana | El grafo se pausa con `interrupt` en `aprobacion_humana`; `POST /tasks/{id}/approve` entrega la decisión y el worker retoma. Si rechazan, el job termina `DONE` sin ejecutar nada. | Escalar un incidente crítico es una acción con efecto externo (simulada): conviene que la revise una persona. |
-| Observabilidad | **Arize Phoenix** con OpenInference. Cada nodo, llamada al modelo, herramienta y recuperación es un *span*; todo cuelga de **una** traza por job. | Se engancha a LangGraph sin decorar funciones. Intenté primero un span manual para el RAG y quedaba huérfano en otra traza, así que dejé el automático. |
-| Un solo cliente de modelo | Uso un único proveedor (Anthropic) a través de `crear_llm` en [orquestador/ejecucion.py](orquestador/ejecucion.py). No llevé el cliente multi-proveedor de la pre-entrega 1. | Ese cliente existía para comparar proveedores; acá el proveedor es una decisión de despliegue (`MODELO_LLM`), no una variable del sistema. `crear_llm` conserva lo que sí importa en producción: *timeout* de 60 s y dos reintentos acotados, para no esperar ni reintentar sin fin. |
+| Observabilidad | **Arize Phoenix** con OpenInference. Cada nodo, llamada al modelo, herramienta y recuperación es un *span*; todo cuelga de **una** traza por ejecución (un job con aprobación humana tiene dos: la primera y la reanudación, unidas por el mismo `session.id`). | Se engancha a LangGraph sin decorar funciones. Intenté primero un span manual para el RAG y quedaba huérfano en otra traza, así que dejé el automático. |
+| Un solo cliente de modelo | Uso un único proveedor (Anthropic) a través de `crear_llm` en [orquestador/ejecucion.py](orquestador/ejecucion.py). No llevé el cliente multi-proveedor de las primeras entregas. | Ese cliente existía para comparar proveedores; acá el proveedor es una decisión de despliegue (`MODELO_LLM`), no una variable del sistema. `crear_llm` conserva lo que sí importa en producción: *timeout* de 60 s y dos reintentos acotados, para no esperar ni reintentar sin fin. |
 | Despliegue | Docker Compose con versiones fijas (Redis 8.8.4, Phoenix 22.0.1, Python 3.13) y [run.sh](run.sh): valida el `.env`, construye, indexa el RAG y espera a que la API responda. | Una sola instrucción y un resultado verificable. Redis 8 trae los módulos de búsqueda y JSON que usa el checkpointer. |
 
 ## Arquitectura
@@ -199,7 +199,7 @@ Dos detalles de la corrida real: la imagen actual de Phoenix pide login y rechaz
 
 Los escenarios de caída están cubiertos en [tests/test_hitl_caida_de_worker.py](tests/test_hitl_caida_de_worker.py).
 
-## Prueba de carga (medida en la pre-entrega 7, antes de sumar el RAG)
+## Prueba de carga (medida antes de sumar el RAG)
 
 Con la API y el worker andando: `python scripts/carga.py --precio-entrada 1 --precio-salida 5` dispara 5 `POST /tasks` a la vez, consulta cada job hasta que termina y calcula
 p50, **p95** y el **costo por ejecución**. Medido sobre la versión sin RAG: p95 de **35,31 s** (p50 32,69 s) según Phoenix, que mide la latencia del grafo, y de 36,2 s medido desde el cliente, que suma la espera en la cola y el sondeo ([resumen](docs/evidencia/carga-5-concurrentes.json)); el costo fue de entre USD 0,04 y 0,05 por ejecución
@@ -239,6 +239,10 @@ contra un Redis real: `REDIS_URL_TEST=redis://localhost:6379 pytest` (**borra es
 - **El escalamiento es simulado**: queda anotado en Redis (`escalaciones:enviadas`), no se envía ningún mail ni mensaje.
 - **El RAG depende de cuotas gratuitas** (Pinecone Starter y Gemini). Bajo carga real podrían aparecer respuestas 429: el sistema reintenta con espera acotada y, si no alcanza, el job queda en `FAILED` con el motivo.
 - **No hay vencimiento para las aprobaciones**: un job puede esperar indefinidamente (hasta el TTL, 7 días por defecto).
+- **Caída persistente del proveedor (429 o 529)**: el job termina `DONE` con un informe que dice que no pudo completar la tarea, en lugar de `FAILED`. Los errores de credenciales y de saldo sí terminan en `FAILED` con un mensaje claro.
+- **Argumentos de las herramientas**: los enumerados y los porcentajes no tienen todos un rango estricto; el validador determinista del informe es la última barrera.
+- **Fragmentos del RAG**: el índice se arma con mi script de ingesta; un fragmento cargado a mano sin metadatos (`chunk_id`) haría fallar la búsqueda híbrida.
+- **Despliegue local, no productivo**: Redis sin contraseña (publicado solo en `127.0.0.1`), Phoenix sin autenticación y el contenedor corre como root.
 - **Probado con un solo proveedor de modelo** (Anthropic) y un solo corpus de 13 documentos; no medí la calidad de la recuperación con un conjunto de preguntas de referencia.
 - **La prueba de carga es de la versión sin RAG** (ver arriba).
 - **Phoenix corre sin login** en el Compose (solo local).
