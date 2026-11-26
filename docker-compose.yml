@@ -19,7 +19,7 @@ services:
     image: redis:8.8.4   # version fija; Redis 8+ trae los modulos de busqueda y JSON que usa el checkpointer
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"   # solo desde esta computadora: Redis no tiene contraseña
     volumes:
       - redis-data:/data
     healthcheck:
@@ -32,7 +32,6 @@ services:
     image: arizephoenix/phoenix:22.0.1   # version fija: con `latest` el comportamiento (login, API) puede cambiar sin avisar
     ports:
       - "6006:6006"   # interfaz web y receptor de trazas por HTTP (/v1/traces)
-      - "4317:4317"   # receptor de trazas por gRPC
     environment:
       PHOENIX_WORKING_DIR: /mnt/data
       # Las versiones nuevas de la imagen piden login y rechazan las trazas con 401. Es un entorno local

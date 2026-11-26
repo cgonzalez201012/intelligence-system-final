@@ -68,6 +68,10 @@ class Servicios:
 # ---------- Un job ----------
 
 
+# Claves de Anthropic, Pinecone y Google: si aparecen en un mensaje de error, no se devuelven al cliente.
+PATRON_SECRETOS = re.compile(r"(?:sk-ant-|pcsk_|AIza)[\w\-]+")
+
+
 def describir_falla(error: Exception) -> str:
     """Texto corto y seguro (sin trazas ni datos internos) de por que fallo un job."""
     estado = getattr(error, "status_code", None)
@@ -79,7 +83,14 @@ def describir_falla(error: Exception) -> str:
         return "La cuenta de Anthropic no tiene saldo suficiente (HTTP 400). Cargá crédito en Plans & Billing y volvé a enviar la tarea."
     if estado in (400, 404):
         return f"El proveedor del modelo rechazó la solicitud (HTTP {estado}). Revisá el nombre del modelo."
+    if estado == 429:
+        return "El proveedor del modelo limitó el uso (HTTP 429). Esperá unos minutos y volvé a enviar la tarea."
+    if isinstance(estado, int) and estado >= 500:
+        return f"El proveedor del modelo está saturado o caído (HTTP {estado}). Esperá unos minutos y volvé a enviar la tarea."
+    if type(error).__name__ in ("APIConnectionError", "APITimeoutError", "ConnectError", "ReadTimeout"):
+        return "No pude conectarme con el proveedor del modelo. Revisá la conexión y volvé a enviar la tarea."
     detalle = str(error).strip().splitlines()[0][:200] if str(error).strip() else ""
+    detalle = PATRON_SECRETOS.sub("[clave oculta]", detalle)
     return f"{type(error).__name__}{': ' + detalle if detalle else ''}"
 
 
@@ -155,6 +166,14 @@ async def procesar_mensaje(mensaje: MensajeDeCola, servicios: Servicios) -> None
     if mensaje.accion == "reanudar" and job.decision is None:
         await almacen.actualizar(job.job_id, "FAILED", error="Se pidió reanudar un job sin decisión humana registrada.")
         return
+    if mensaje.accion == "reanudar":
+        # Si el checkpoint expiró (o Redis se vació), reanudar correría el grafo desde cero y fallaría con un KeyError.
+        foto = await servicios.grafo.aget_state({"configurable": {"thread_id": job.job_id}})
+        if not foto.next:
+            await almacen.actualizar(
+                job.job_id, "FAILED", error="El estado pausado de esta tarea expiró. Volvé a enviarla."
+            )
+            return
 
     await almacen.actualizar(job.job_id, "RUNNING")
     logger.info("job %s: RUNNING (%s)", job.job_id, mensaje.accion)
@@ -279,6 +298,10 @@ async def correr_worker(
                 logger.exception("No pude leer la cola de Redis: reintento en 2 s.")
                 cupos.release()
                 await asyncio.sleep(2)
+                continue
+            except Exception:  # noqa: BLE001 - nada que venga de la cola puede tumbar el bucle
+                logger.exception("Error inesperado al tomar un mensaje de la cola: sigo con el siguiente.")
+                cupos.release()
                 continue
             if mensaje is None:
                 cupos.release()

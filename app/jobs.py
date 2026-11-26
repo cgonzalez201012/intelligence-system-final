@@ -12,16 +12,19 @@ un worker rapido podria tomar la tarea antes de que exista el registro y el clie
 """
 
 import json
+import logging
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
 from app.schemas import ESTADOS_FINALES, EstadoJob, MensajeDeCola, TareaEstado
+
+logger = logging.getLogger(__name__)
 
 COLA_DE_TAREAS = "cola:tareas"
 MAX_RECUPERACIONES = 2  # veces que se reencola una reanudacion interrumpida antes de darla por fallida
@@ -79,7 +82,11 @@ class AlmacenDeJobs:
         for campo in _CAMPOS_JSON:
             if campo in crudo:
                 crudo[campo] = json.loads(crudo[campo]) if crudo[campo] else None
-        return TareaEstado.model_validate(crudo)
+        try:
+            return TareaEstado.model_validate(crudo)
+        except (ValidationError, ValueError):
+            logger.warning("El registro del job %s está incompleto (expiró mientras corría): lo trato como inexistente.", job_id)
+            return None
 
     async def actualizar(self, job_id: str, estado: EstadoJob, **campos: Any) -> None:
         """Cambia el estado del job y guarda los campos que se indiquen (los JSON se serializan solos).
@@ -102,6 +109,12 @@ class AlmacenDeJobs:
                 a_guardar[nombre] = str(valor)
         clave = _clave(job_id)
         async with self._redis.pipeline(transaction=True) as pipeline:
+            await pipeline.watch(clave)
+            if not await pipeline.exists(clave):
+                # El registro expiró mientras el job corría: no lo recreo a medias (quedaría un hash sin job_id).
+                logger.warning("job %s: el registro ya no existe, no guardo el estado %s.", job_id, estado)
+                return
+            pipeline.multi()
             pipeline.hset(clave, mapping=a_guardar)
             if a_borrar:
                 pipeline.hdel(clave, *a_borrar)
@@ -189,7 +202,12 @@ class AlmacenDeJobs:
         if elemento is None:
             return None
         _, contenido = elemento
-        return MensajeDeCola.model_validate_json(contenido)
+        try:
+            return MensajeDeCola.model_validate_json(contenido)
+        except ValidationError:
+            # Un mensaje corrupto no puede tumbar el bucle del worker: se descarta y se deja registro.
+            logger.error("Descarto un mensaje inválido de la cola: %.200r", contenido)
+            return None
 
     async def largo_de_la_cola(self) -> int:
         return int(await self._redis.llen(self._cola))

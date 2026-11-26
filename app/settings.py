@@ -53,7 +53,7 @@ class Ajustes:
     def desde_entorno(cls, *, cargar_dotenv: bool = True) -> "Ajustes":
         if cargar_dotenv:
             load_dotenv(BASE_DIR / ".env", override=False)
-        return cls(
+        ajustes = cls(
             redis_url=os.environ.get("REDIS_URL", "").strip() or REDIS_URL_POR_DEFECTO,
             observabilidad=_booleano("OBSERVABILIDAD", True),
             phoenix_endpoint=os.environ.get("PHOENIX_COLLECTOR_ENDPOINT", "").strip() or PHOENIX_ENDPOINT_POR_DEFECTO,
@@ -64,6 +64,17 @@ class Ajustes:
             ttl_checkpoints_minutos=entero_del_entorno("TTL_CHECKPOINTS_MINUTOS", 7 * 24 * 60, minimo=1),
             job_timeout_segundos=entero_del_entorno("JOB_TIMEOUT_SEGUNDOS", JOB_TIMEOUT_POR_DEFECTO, minimo=30),
         )
+        if ajustes.ttl_jobs_segundos <= ajustes.job_timeout_segundos + MARGEN_HUERFANOS_SEGUNDOS:
+            raise ErrorConfiguracion(
+                "TTL_JOBS_SEGUNDOS tiene que ser mayor que JOB_TIMEOUT_SEGUNDOS más "
+                f"{MARGEN_HUERFANOS_SEGUNDOS} s: si no, el registro de un job expira mientras todavía corre."
+            )
+        if ajustes.ttl_checkpoints_minutos * 60 < ajustes.ttl_jobs_segundos:
+            raise ErrorConfiguracion(
+                "TTL_CHECKPOINTS_MINUTOS tiene que cubrir al menos TTL_JOBS_SEGUNDOS: "
+                "si no, una tarea puede esperar aprobación sin que quede su checkpoint."
+            )
+        return ajustes
 
 
 def _booleano(nombre: str, por_defecto: bool) -> bool:

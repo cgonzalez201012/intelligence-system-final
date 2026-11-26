@@ -1,5 +1,6 @@
 """Contratos de la API: todo lo que entra y sale por HTTP, validado con Pydantic."""
 
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -59,6 +60,8 @@ class TareaIn(BaseModel):
     @field_validator("tarea")
     @classmethod
     def _sin_espacios_de_mas(cls, valor: str) -> str:
+        if any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in valor):
+            raise ValueError("La tarea no puede tener caracteres de control.")
         limpio = " ".join(valor.split())
         if len(limpio) < 10:
             raise ValueError("La tarea tiene que tener al menos 10 caracteres.")

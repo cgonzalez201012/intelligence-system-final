@@ -21,12 +21,13 @@ se pisan), que es lo que permite rastrear quien aporto que.
 """
 
 import operator
+import unicodedata
 from datetime import date
 from typing import Annotated, Literal
 
 from langchain_core.messages import HumanMessage
 from langgraph.graph import MessagesState
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 Severidad = Literal["critica", "alta", "media", "baja"]
 NombreAgente = Literal["investigador", "analista", "redactor"]
@@ -280,9 +281,23 @@ class AccionPropuesta(_Modelo):
 class DecisionHumana(_Modelo):
     """La señal externa que reanuda el grafo: la decisión de una persona sobre las acciones propuestas."""
 
-    aprobada: bool
+    aprobada: StrictBool   # solo true/false de verdad: "yes" o 1 no cuentan como aprobación
     revisor: str = Field(min_length=1, max_length=80)
     comentario: str = Field(default="", max_length=500)
+
+    @field_validator("revisor", "comentario")
+    @classmethod
+    def _texto_limpio(cls, valor: str) -> str:
+        if any(unicodedata.category(c) == "Cc" and c not in "\n" for c in valor):
+            raise ValueError("No se admiten caracteres de control.")
+        return valor.strip()
+
+    @field_validator("revisor")
+    @classmethod
+    def _revisor_con_contenido(cls, valor: str) -> str:
+        if not valor:
+            raise ValueError("El revisor no puede quedar vacío.")
+        return valor
 
 
 class ResultadoAccion(_Modelo):

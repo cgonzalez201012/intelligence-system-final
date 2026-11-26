@@ -36,8 +36,19 @@ from orquestador.state import (
     VencimientoSLA,
 )
 
-PATRON_IDS = re.compile(r"\b(?:INC-\d{4}|R-[A-Z]{3}-\d{2})\b")
-PATRON_POLITICAS = re.compile(r"\bGD-[A-Z]{3}-\d{3}\b")   # codigo de un documento de politica (GD-POL-001)
+_GUION = "\\s\u2010\u2011\u2012\u2013\u2014-"   # guion ASCII, guiones Unicode o espacio: "GD POL 009" también cuenta
+PATRON_IDS = re.compile(r"\b(?:INC-\d+|R-[A-Z]{3}-\d+)\b", re.IGNORECASE)
+PATRON_POLITICAS = re.compile(rf"\bGD[{_GUION}]?([A-Z]{{3}})[{_GUION}]?(\d+)", re.IGNORECASE)   # GD-POL-001
+
+
+def codigos_citados(informe: str) -> set[str]:
+    """Códigos de política que el informe nombra, normalizados a MAYÚSCULAS y guion ASCII (GD-POL-001)."""
+    return {f"GD-{tres.upper()}-{numero}" for tres, numero in PATRON_POLITICAS.findall(informe)}
+
+
+def ids_citados(informe: str) -> set[str]:
+    """IDs de incidente y de regla que el informe nombra, en mayúsculas."""
+    return {i.upper() for i in PATRON_IDS.findall(informe)}
 
 
 def validar_investigador(hallazgos: Hallazgos | None) -> list[str]:
@@ -152,7 +163,7 @@ def validar_redactor(hallazgos: Hallazgos | None, analisis: Analisis | None, inf
         return ["El informe está vacío."]
 
     problemas: list[str] = []
-    citados = set(PATRON_IDS.findall(informe))
+    citados = ids_citados(informe)
     conocidos = hallazgos.ids_conocidos() if hallazgos is not None else set()
     inventados = citados - conocidos
     if inventados:
@@ -160,7 +171,7 @@ def validar_redactor(hallazgos: Hallazgos | None, analisis: Analisis | None, inf
 
     # Una politica solo se puede citar si el RAG la devolvio en esta tarea (no vale citar de memoria).
     codigos_recuperados = hallazgos.codigos_de_politicas() if hallazgos is not None else set()
-    sin_respaldo = set(PATRON_POLITICAS.findall(informe)) - codigos_recuperados
+    sin_respaldo = codigos_citados(informe) - codigos_recuperados
     if sin_respaldo:
         problemas.append(
             "El informe cita documentos de política que no se recuperaron con buscar_en_politicas: "
