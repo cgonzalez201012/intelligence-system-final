@@ -215,7 +215,7 @@ class RAGSystem:
         """
         consulta = (consulta or "").strip()
         if not consulta:
-            raise ValueError("La consulta esta vacia.")
+            raise ValueError("La consulta está vacía.")
         if modo not in MODOS:
             raise ValueError(f"modo debe ser uno de {MODOS}, no '{modo}'.")
         limite = self.k if k is None else k

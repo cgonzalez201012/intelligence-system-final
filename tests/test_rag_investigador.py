@@ -9,7 +9,6 @@ from orquestador import rag_provider
 from orquestador.agents.research_agent import HERRAMIENTAS_INVESTIGADOR, buscar_en_politicas, construir_hallazgos
 from orquestador.state import FragmentoCitado, Hallazgos
 from orquestador.validacion import validar_investigador, validar_redactor
-from rag.errores import ConfiguracionError
 from rag.rag_system import RAGSystem
 from tests.fakes import analisis_de_datos, hallazgos_de_datos
 from tests.rag.fakes import VectorStoreFijo, documento

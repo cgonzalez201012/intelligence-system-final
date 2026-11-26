@@ -61,7 +61,7 @@ def test_un_modelo_por_agente_pisa_al_modelo_general(monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize(
     ("variable", "valor", "fragmento"),
     [
-        ("MAX_PASOS", "dos", "numero entero"),
+        ("MAX_PASOS", "dos", "número entero"),
         ("MAX_PASOS", "2", "al menos 3"),
         ("MAX_INTENTOS_POR_AGENTE", "0", "al menos 1"),
         ("RECURSION_ESPECIALISTA", "3", "al menos 4"),

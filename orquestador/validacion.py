@@ -194,7 +194,7 @@ def validar(estado: EstadoOrquestador) -> ResultadoValidacion:
     agente: NombreAgente | None = estado["ultimo_agente"]
     paso = estado["pasos"]
     if agente is None:
-        raise ValueError("No hay nada para validar: ningun agente entrego su aporte todavia.")
+        raise ValueError("No hay nada para validar: ningún agente entregó su aporte todavía.")
     if agente == "investigador":
         problemas = validar_investigador(estado["hallazgos"])
     elif agente == "analista":

@@ -18,7 +18,7 @@ from app.graph import serializador_del_estado
 from app.jobs import MAX_RECUPERACIONES, AlmacenDeJobs
 from app.schemas import MensajeDeCola
 from app.settings import Ajustes
-from app.worker import MOTIVO_HUERFANO, Servicios, barrer_huerfanos, procesar_mensaje
+from app.worker import MOTIVO_HUERFANO, Servicios, barrer_huerfanos
 from orquestador.state import Hallazgos
 from tests.conftest import NotificadorEspia, enviar_y_procesar, reanudar_y_procesar
 from tests.fakes import SupervisorFalso, decidir, especialistas_falsos, guion_analista, guion_investigador, informe

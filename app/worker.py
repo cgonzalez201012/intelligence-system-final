@@ -161,7 +161,7 @@ async def procesar_mensaje(mensaje: MensajeDeCola, servicios: Servicios) -> None
     almacen = servicios.almacen
     job = await almacen.obtener(mensaje.job_id)
     if job is None or job.estado != "PENDING":
-        logger.warning("Mensaje ignorado: el job %s no existe o no esta PENDING.", mensaje.job_id)
+        logger.warning("Mensaje ignorado: el job %s no existe o no está PENDING.", mensaje.job_id)
         return
     if mensaje.accion == "reanudar" and job.decision is None:
         await almacen.actualizar(job.job_id, "FAILED", error="Se pidió reanudar un job sin decisión humana registrada.")
@@ -195,7 +195,7 @@ async def procesar_mensaje(mensaje: MensajeDeCola, servicios: Servicios) -> None
     except asyncio.CancelledError:
         raise
     except Exception as error:  # noqa: BLE001 - ver docstring del modulo: toda falla termina en FAILED
-        logger.exception("job %s: fallo.", job.job_id)
+        logger.exception("job %s: falló.", job.job_id)
         motivo = MOTIVO_TIMEOUT if limite.expired() else describir_falla(error)
         await _marcar_fallido(job, motivo, contador, time.perf_counter() - inicio, almacen)
 

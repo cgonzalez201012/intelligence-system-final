@@ -218,17 +218,17 @@ def imprimir(resumen: Resumen) -> None:
     print(f"\nPeticiones: {resumen.peticiones}  exitosas: {resumen.exitosas}  fallidas: {resumen.fallidas}")
     print(f"Tiempo total de la prueba: {resumen.segundos_de_pared} s")
     print(f"Latencia p50: {resumen.latencia_p50_s} s | p95: {resumen.latencia_p95_s} s | maxima: {resumen.latencia_maxima_s} s")
-    print(f"La API acepto cada peticion en {resumen.aceptacion_maxima_s} s como maximo (no espera al modelo).")
+    print(f"La API aceptó cada petición en {resumen.aceptacion_maxima_s} s como máximo (no espera al modelo).")
     print(f"Tokens por ejecucion (promedio): {resumen.tokens_por_ejecucion_promedio}")
     if resumen.costo_por_ejecucion_usd is not None:
-        print(f"Costo por ejecucion: USD {resumen.costo_por_ejecucion_usd}")
+        print(f"Costo por ejecución: USD {resumen.costo_por_ejecucion_usd}")
     else:
-        print("Costo por ejecucion: no calculado aca (pasá --precio-entrada y --precio-salida); mirá el dashboard de Phoenix.")
+        print("Costo por ejecución: no calculado acá (pasá --precio-entrada y --precio-salida); mirá el dashboard de Phoenix.")
 
 
 def parsear(argumentos: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--url", default="http://localhost:8000", help="direccion de la API")
+    parser.add_argument("--url", default="http://localhost:8000", help="dirección de la API")
     parser.add_argument("--n", type=int, default=5, help="cantidad de peticiones concurrentes (por defecto 5)")
     parser.add_argument("--perfil", choices=sorted(TAREAS_POR_PERFIL), default="sin-aprobacion")
     parser.add_argument("--tiempo-maximo", type=float, default=300.0, help="segundos maximos que se espera a cada job")

@@ -19,7 +19,7 @@ en [docs/evidencia/corridas.md](docs/evidencia/corridas.md).
 | Citas verificables | Cada fragmento trae su cita (`código (archivo, pág. N)`) y un validador **rechaza** un informe que cite un código `GD-XXX-NNN` que el investigador no recuperó. El resultado del job lista `fuentes_citadas`. | Un RAG que puede inventar una fuente es peor que no tenerlo. La validación es determinista, no depende de que el modelo "se acuerde". |
 | Cómo corre el agente | La API **no** corre el grafo: `POST /tasks` registra el job y lo encola en Redis; lo ejecuta un **worker** en otro proceso. | Un flujo de agentes tarda decenas de segundos. Con cola y worker, la API responde en milisegundos, un reinicio de la API no pierde nada y se pueden sumar workers. |
 | Async de verdad | Nada bloquea el *event loop*: las llamadas al modelo, a Redis y al RAG son `async`; el cliente de Pinecone (síncrono) corre en un hilo (`asyncio.to_thread`). | Una llamada bloqueante dentro de la API congela a todos los demás pedidos. Encontré que `langchain-pinecone` reutiliza una sesión HTTP asíncrona entre búsquedas y la aislé en [rag/vectorstore.py](rag/vectorstore.py). |
-| Contratos con Pydantic | Entradas y salidas de la API, de las herramientas y del RAG son modelos Pydantic estrictos (`extra="forbid"`, límites de largo, `Literal`). El esquema OpenAPI exportado está en [docs/openapi.json](docs/openapi.json) y un test falla si el código lo cambia sin regenerarlo. | La validación en los bordes evita que un dato mal formado llegue al modelo, y los errores 404, 409 y 503 salen con un formato único (`ErrorApi`); el 422 usa el formato estándar de FastAPI, que detalla qué campo falló. |
+| Contratos con Pydantic | Las entradas y salidas de la API y del RAG, y las entradas de todas las herramientas, son modelos Pydantic estrictos (`extra="forbid"`, límites de largo y de rango, `Literal`). El esquema OpenAPI exportado está en [docs/openapi.json](docs/openapi.json) y un test falla si el código lo cambia sin regenerarlo. | La validación en los bordes evita que un dato mal formado llegue al modelo, y los errores 404, 409 y 503 salen con un formato único (`ErrorApi`); el 422 usa el formato estándar de FastAPI, que detalla qué campo falló. |
 | Estados del job | `PENDING` → `RUNNING` → (`WAITING_APPROVAL` →) `DONE` o `FAILED`. El job se guarda como `PENDING` **antes** de encolarse. | Nunca hay un mensaje en la cola sin registro. Cualquier excepción, timeout o worker muerto termina en `FAILED` con el motivo. |
 | Persistencia | **Checkpointer de Redis** (`AsyncRedisSaver`): `thread_id = job_id`. Redis guarda además el registro del job y la cola. | El `job_id` une todo: el job, su checkpoint y su traza. La pausa de aprobación vive en Redis, no en memoria. |
 | Aprobación humana | El grafo se pausa con `interrupt` en `aprobacion_humana`; `POST /tasks/{id}/approve` entrega la decisión y el worker retoma. Si rechazan, el job termina `DONE` sin ejecutar nada. | Escalar un incidente crítico es una acción con efecto externo (simulada): conviene que la revise una persona. |
@@ -215,7 +215,7 @@ pytest          # sin claves ni Redis: modelos falsos y Redis simulado
 mypy .
 ```
 
-Más de 550 pruebas, sin gastar la API: contratos de la API y del RAG, integridad de las citas, que la API no espere al grafo, que 5 jobs corran en paralelo, que no se ejecute ninguna
+585 pruebas, sin gastar la API: contratos de la API y del RAG, integridad de las citas, que la API no espere al grafo, que 5 jobs corran en paralelo, que no se ejecute ninguna
 acción sin aprobación, escenarios de caída del worker, forma de las trazas (un solo árbol por job), y el despliegue (Dockerfile, Compose y `run.sh`). Para correr las pruebas de la cola
 contra un Redis real: `REDIS_URL_TEST=redis://localhost:6379 pytest` (**borra esa base**, usá una de prueba).
 
@@ -225,25 +225,22 @@ contra un Redis real: `REDIS_URL_TEST=redis://localhost:6379 pytest` (**borra es
 |---|---|
 | [app/](app/) | La API ([main.py](app/main.py)), el worker ([worker.py](app/worker.py)), el grafo de producción ([graph.py](app/graph.py)), la aprobación humana ([hitl.py](app/hitl.py)), la observabilidad ([observability.py](app/observability.py)), el estado de los jobs, los contratos y la acción simulada. |
 | [orquestador/](orquestador/) | Supervisor, especialistas, validación determinista, estado y herramientas. |
-| `rag/` | Ingesta, índice de Pinecone, recuperación híbrida y esquemas del RAG. |
+| [rag/](rag/) | Ingesta, índice de Pinecone, recuperación híbrida y esquemas del RAG. |
 | [data/](data/) | Políticas ficticias (`politicas/`) y los datos operativos en JSON. |
-| [scripts/](scripts/) | Carga, corridas de evidencia, verificación del entorno, exportación del OpenAPI y del diagrama. |
+| [scripts/](scripts/) | Carga, corridas de evidencia, verificación del entorno, exportación del OpenAPI y del diagrama, y la generación de los PDF de las políticas ([generar_pdfs_politicas.py](scripts/generar_pdfs_politicas.py)). |
 | [tests/](tests/) | Las pruebas. |
-| [docs/](docs/), `screenshots/` | Diagramas, OpenAPI, evidencia y capturas. |
+| [docs/](docs/), [screenshots/](screenshots/) | Diagramas, OpenAPI, evidencia y capturas. |
 | [docker-compose.yml](docker-compose.yml), [Dockerfile](Dockerfile), [run.sh](run.sh), [requirements.txt](requirements.txt), [.env.example](.env.example) | Despliegue y configuración. |
 
 ## Límites que conozco
 
 - **No hay autenticación**: `POST /tasks/{id}/approve` lo puede llamar cualquiera que llegue a la API, y `revisor` es texto libre. Para producción real iría detrás de un proveedor de identidad.
-- **Redis expone el puerto 6379 sin contraseña** en el Compose, pensado para uso local. En un servidor habría que cerrarlo o protegerlo.
 - **El escalamiento es simulado**: queda anotado en Redis (`escalaciones:enviadas`), no se envía ningún mail ni mensaje.
 - **El RAG depende de cuotas gratuitas** (Pinecone Starter y Gemini). Bajo carga real podrían aparecer respuestas 429: el sistema reintenta con espera acotada y, si no alcanza, el job queda en `FAILED` con el motivo.
 - **No hay vencimiento para las aprobaciones**: un job puede esperar indefinidamente (hasta el TTL, 7 días por defecto).
 - **Caída persistente del proveedor (429 o 529)**: el job termina `DONE` con un informe que dice que no pudo completar la tarea, en lugar de `FAILED`. Los errores de credenciales y de saldo sí terminan en `FAILED` con un mensaje claro.
-- **Argumentos de las herramientas**: los enumerados y los porcentajes no tienen todos un rango estricto; el validador determinista del informe es la última barrera.
+- **Salidas de las herramientas de datos**: las entradas son modelos Pydantic estrictos, pero las tres herramientas de consulta devuelven un JSON armado a mano y se validan recién al construir `Hallazgos`. Los nombres de maestro, estado y severidad se normalizan y, si no existen, devuelven un error con ayuda en lugar de rechazarse en el esquema.
 - **Fragmentos del RAG**: el índice se arma con mi script de ingesta; un fragmento cargado a mano sin metadatos (`chunk_id`) haría fallar la búsqueda híbrida.
-- **Despliegue local, no productivo**: Redis sin contraseña (publicado solo en `127.0.0.1`), Phoenix sin autenticación y el contenedor corre como root.
+- **Despliegue pensado para uso local**: Redis no tiene contraseña (el Compose lo publica solo en `127.0.0.1`), Phoenix corre sin login y el contenedor corre como root. En un servidor habría que protegerlos.
 - **Probado con un solo proveedor de modelo** (Anthropic) y un solo corpus de 13 documentos; no medí la calidad de la recuperación con un conjunto de preguntas de referencia.
-- **La prueba de carga es de la versión sin RAG** (ver arriba).
-- **Phoenix corre sin login** en el Compose (solo local).
 - Los datos y las políticas de Mercado Austral S.A. son ficticios.

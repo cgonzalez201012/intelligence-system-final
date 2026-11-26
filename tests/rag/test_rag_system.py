@@ -171,7 +171,7 @@ async def test_el_resultado_lleva_la_fuente_la_pagina_la_seccion_y_el_texto():
 
 async def test_consulta_vacia_o_modo_desconocido_se_rechazan():
     rag = RAGSystem(VectorStoreFijo([]), CORPUS)
-    with pytest.raises(ValueError, match="vacia"):
+    with pytest.raises(ValueError, match="vacía"):
         await rag.buscar("   ")
     with pytest.raises(ValueError, match="modo"):
         await rag.buscar("algo", modo="magico")

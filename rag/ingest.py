@@ -172,7 +172,7 @@ def _leer_paginas(ruta: Path) -> list[Pagina]:
     try:
         crudo = ruta.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
-        raise IngestaError(f"{ruta.name} no esta codificado en UTF-8: guardalo como UTF-8.") from exc
+        raise IngestaError(f"{ruta.name} no está codificado en UTF-8: guardalo como UTF-8.") from exc
     texto = limpiar_texto(crudo)
     return [Pagina(1, texto)] if texto else []
 
@@ -195,7 +195,7 @@ def cargar_documentos(data_dir: Path | str = config.DATA_DIR) -> list[Documento]
     for ruta in archivos:
         paginas = _leer_paginas(ruta)
         if not paginas:
-            logger.warning("%s esta vacio: se omite.", ruta.name)
+            logger.warning("%s está vacío: se omite.", ruta.name)
             continue
         codigo, categoria = derivar_codigo_y_categoria("\n".join(p.texto for p in paginas))
         documentos.append(
@@ -399,7 +399,7 @@ def ingestar(
     documentos = cargar_documentos(data_dir)
     fragmentos = fragmentar(documentos, contador)
     if not fragmentos:
-        raise IngestaError("Los documentos no produjeron ningun fragmento.")
+        raise IngestaError("Los documentos no produjeron ningún fragmento.")
 
     pc = pc or crear_cliente(cfg)
     index = abrir_indice(pc, cfg.index_name)  # verifica que exista y que la dimension coincida
@@ -447,7 +447,7 @@ def _imprimir_dry_run(documentos: list[Documento], fragmentos: list[Document], m
     print(f"  Medición de tokens .... {medicion}")
     for doc in documentos:
         cantidad = sum(1 for f in fragmentos if f.metadata["documento_id"] == doc.documento_id)
-        print(f"    - {doc.fuente}: {cantidad} fragmentos, categoria '{doc.categoria}', codigo {doc.codigo}")
+        print(f"    - {doc.fuente}: {cantidad} fragmentos, categoría '{doc.categoria}', codigo {doc.codigo}")
     ejemplo = {**fragmentos[0].metadata, config.TEXT_KEY: fragmentos[0].page_content[:80] + "..."}
     print("  Metadata del primer fragmento (lo que se guarda junto al vector):")
     for clave, valor in ejemplo.items():

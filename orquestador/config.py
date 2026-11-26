@@ -84,7 +84,7 @@ def entero_del_entorno(nombre: str, por_defecto: int, *, minimo: int) -> int:
     try:
         valor = int(texto)
     except ValueError as error:
-        raise ErrorConfiguracion(f"{nombre} tiene que ser un numero entero (vale {texto!r}).") from error
+        raise ErrorConfiguracion(f"{nombre} tiene que ser un número entero (vale {texto!r}).") from error
     if valor < minimo:
         raise ErrorConfiguracion(f"{nombre} tiene que ser al menos {minimo} (vale {valor}).")
     return valor

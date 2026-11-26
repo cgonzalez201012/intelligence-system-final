@@ -16,7 +16,6 @@ from redis.asyncio import Redis
 from app.graph import construir_grafo_produccion
 from app.jobs import AlmacenDeJobs
 from app.main import crear_app
-from app.notificador import NotificadorRedis
 from app.schemas import MensajeDeCola
 from app.settings import Ajustes
 from app.worker import Servicios, procesar_mensaje

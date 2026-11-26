@@ -1,5 +1,4 @@
 """Ingesta: lectura (md/txt/pdf), chunking con metadatos, upsert por lotes, idempotencia y errores."""
-import shutil
 
 import pytest
 
@@ -377,7 +376,7 @@ def test_main_dry_run_no_necesita_claves_ni_red(datos, monkeypatch, capsys):
 
     assert ingest.main(["--dry-run", "--data", str(datos)]) == 0
     salida = capsys.readouterr().out
-    assert "DRY RUN" in salida and "01-politica-a.md" in salida and "categoria 'politica'" in salida
+    assert "DRY RUN" in salida and "01-politica-a.md" in salida and "categoría 'politica'" in salida
     assert "chunk_id" in salida and "documento_id" in salida
 
 

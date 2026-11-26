@@ -3,7 +3,7 @@
 Por que existe: la consigna pide que la metadata incluya la PAGINA de origen. Los .md no tienen paginas
 (se indexan como pagina 1), asi que parte del dataset son PDF reales de varias paginas.
 
-Uso (solo hace falta si queres regenerar los PDF; ya estan en data/politicas/):
+Uso (solo hace falta si querés regenerar los PDF; ya estan en data/politicas/):
     pip install reportlab
     python scripts/generar_pdfs_politicas.py
 

@@ -19,7 +19,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from rag.errores import RagError
 from rag.schemas import CategoriaDocumento, ConsultaRAG
@@ -91,6 +91,8 @@ def _error_a_texto(error: ErrorConsulta) -> str:
 class BuscarIncidentesArgs(BaseModel):
     """Argumentos de buscar_incidentes_calidad."""
 
+    model_config = ConfigDict(extra="forbid")
+
     maestro: str = Field(
         description="Maestro de datos a consultar. Valores validos: 'articulos', 'proveedores' o 'sucursales'."
     )
@@ -107,11 +109,15 @@ class BuscarIncidentesArgs(BaseModel):
 class DetalleIncidenteArgs(BaseModel):
     """Argumentos de detalle_incidente."""
 
+    model_config = ConfigDict(extra="forbid")
+
     incidente_id: str = Field(description="ID del incidente, con formato INC-NNNN (por ejemplo 'INC-1001').")
 
 
 class ReglaCalidadArgs(BaseModel):
     """Argumentos de consultar_regla_calidad."""
+
+    model_config = ConfigDict(extra="forbid")
 
     regla_id: str = Field(description="ID de la regla de calidad, con formato R-XXX-NN (por ejemplo 'R-ART-01').")
 
@@ -144,8 +150,8 @@ async def detalle_incidente(incidente_id: str) -> str:
 
     Usala cuando ya tenés el ID (formato INC-NNNN, por ejemplo INC-1001) y necesitás datos
     que el listado no trae: responsable (Data Owner), Data Steward, regla de calidad
-    incumplida (regla_id), cantidad de registros afectados, plazo de resolucion (SLA en
-    horas habiles segun la severidad) y fecha de corte de los datos.
+    incumplida (regla_id), cantidad de registros afectados, plazo de resolución (SLA en
+    horas hábiles segun la severidad) y fecha de corte de los datos.
 
     Si no conocés el ID, primero obtenelo con buscar_incidentes_calidad: no lo inventes.
     Si el ID no existe, devuelve un JSON con 'error' y 'ayuda' que lista los IDs existentes.
@@ -182,15 +188,15 @@ class BuscarPoliticasArgs(BaseModel):
     consulta: str = Field(
         min_length=3,
         max_length=500,
-        description="Pregunta o frase a buscar, en lenguaje natural (por ejemplo 'plazo para resolver un incidente critico') "
-        "o un codigo de documento ('GD-PRO-003').",
+        description="Pregunta o frase a buscar, en lenguaje natural (por ejemplo 'plazo para resolver un incidente crítico') "
+        "o un código de documento ('GD-PRO-003').",
     )
     categoria: CategoriaDocumento | None = Field(
         default=None,
         description="Filtro opcional por tipo de documento: 'politica', 'roles', 'procedimiento', 'glosario' o 'general'. "
         "Si se omite busca en todos.",
     )
-    k: int = Field(default=3, ge=1, le=10, description="Cuantos fragmentos traer (1 a 10). Por defecto 3.")
+    k: int = Field(default=3, ge=1, le=10, description="Cuántos fragmentos traer (1 a 10). Por defecto 3.")
 
 
 @tool("buscar_en_politicas", args_schema=BuscarPoliticasArgs)
@@ -201,7 +207,7 @@ async def buscar_en_politicas(consulta: str, categoria: CategoriaDocumento | Non
     responsable de qué, cómo se escala un caso, qué significa un término. Combina búsqueda semántica
     y por palabras clave sobre los documentos indexados de Mercado Austral.
 
-    Devuelve un JSON con 'fragmentos' (texto original, codigo del documento, fuente, pagina y la
+    Devuelve un JSON con 'fragmentos' (texto original, código del documento, fuente, página y la
     'cita' lista para usar). Cada dato que uses de esas políticas tiene que salir de esos
     fragmentos. Si no hay coincidencias devuelve 'fragmentos' vacío. Si falla, devuelve 'error' y 'ayuda'.
     """

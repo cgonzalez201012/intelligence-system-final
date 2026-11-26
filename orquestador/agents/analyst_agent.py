@@ -4,7 +4,7 @@ Es el especialista de "analisis/computo". Recibe los datos YA recolectados (no c
 base) y usa tres herramientas de calculo deterministas (`calculos.py`):
 
 - brecha de una regla contra su umbral,
-- vencimiento del plazo (SLA) de un incidente en horas habiles,
+- vencimiento del plazo (SLA) de un incidente en horas hábiles,
 - ranking de prioridad de los incidentes.
 
 Un modelo de lenguaje no deberia hacer cuentas de cabeza: por eso cada numero sale de una
@@ -20,7 +20,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from orquestador import calculos
 from orquestador.agents.base import (
@@ -79,29 +79,35 @@ def _error_a_texto(error: ErrorCalculo) -> str:
 class BrechaReglaArgs(BaseModel):
     """Argumentos de calcular_brecha_regla."""
 
+    model_config = ConfigDict(extra="forbid")
+
     regla_id: str = Field(description="ID de la regla, con formato R-XXX-NN (por ejemplo 'R-ART-01').")
-    medicion_pct: float = Field(description="Medicion actual de la regla, en porcentaje (por ejemplo 96.8).")
-    umbral_pct: float = Field(description="Umbral de aceptacion de la regla, en porcentaje (por ejemplo 99.5).")
+    medicion_pct: float = Field(ge=0, le=100, allow_inf_nan=False, description="Medición actual de la regla, en porcentaje (por ejemplo 96.8).")
+    umbral_pct: float = Field(ge=0, le=100, allow_inf_nan=False, description="Umbral de aceptación de la regla, en porcentaje (por ejemplo 99.5).")
 
 
 class VencimientoSlaArgs(BaseModel):
     """Argumentos de calcular_vencimiento_sla."""
 
+    model_config = ConfigDict(extra="forbid")
+
     incidente_id: str = Field(description="ID del incidente, con formato INC-NNNN.")
     severidad: Severidad = Field(description="Severidad del incidente: 'critica', 'alta', 'media' o 'baja'.")
     fecha_alta: date = Field(description="Fecha de alta del incidente, formato AAAA-MM-DD.")
     fecha_corte: date = Field(description="Fecha de corte de los datos, formato AAAA-MM-DD.")
-    sla_horas_habiles: int = Field(gt=0, description="Plazo (SLA) del incidente, en horas habiles.")
+    sla_horas_habiles: int = Field(gt=0, description="Plazo (SLA) del incidente, en horas hábiles.")
 
 
 class PriorizarArgs(BaseModel):
     """Argumentos de priorizar_incidentes."""
 
+    model_config = ConfigDict(extra="forbid")
+
     items: list[ItemPrioridad] = Field(
         min_length=1,
         description=(
             "Un elemento por incidente, con: incidente_id, severidad, vencido (true/false), "
-            "exceso_horas (horas habiles pasadas del plazo, 0 si no vencio) y registros_afectados."
+            "exceso_horas (horas hábiles pasadas del plazo, 0 si no vencio) y registros_afectados."
         ),
     )
 
@@ -124,10 +130,10 @@ async def calcular_brecha_regla(regla_id: str, medicion_pct: float, umbral_pct: 
 async def calcular_vencimiento_sla(
     incidente_id: str, severidad: Severidad, fecha_alta: date, fecha_corte: date, sla_horas_habiles: int
 ) -> str:
-    """Calcula si el plazo (SLA) de un incidente esta vencido y por cuántas horas habiles.
+    """Calcula si el plazo (SLA) de un incidente esta vencido y por cuántas horas hábiles.
 
-    Usala UNA vez por cada incidente con sus datos exactos. Cuenta los dias de lunes a viernes
-    entre la fecha de alta y la fecha de corte (una jornada son 8 horas habiles, sin descontar
+    Usala UNA vez por cada incidente con sus datos exactos. Cuenta los días de lunes a viernes
+    entre la fecha de alta y la fecha de corte (una jornada son 8 horas hábiles, sin descontar
     feriados) y los compara con el SLA del incidente.
 
     Devuelve un JSON con dias_habiles, horas_habiles_transcurridas, sla_horas_habiles,
@@ -149,7 +155,7 @@ async def priorizar_incidentes(items: list[ItemPrioridad]) -> str:
     severidad, después si el SLA está vencido, después las horas pasadas del plazo y por
     último los registros afectados.
 
-    Devuelve un JSON con 'ranking': la lista de IDs de incidente, el primero es el mas urgente.
+    Devuelve un JSON con 'ranking': la lista de IDs de incidente, el primero es el más urgente.
     """
     return _a_texto({"ranking": calculos.ordenar_por_prioridad(items)})
 

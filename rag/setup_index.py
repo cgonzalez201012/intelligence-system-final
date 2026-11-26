@@ -82,7 +82,7 @@ def asegurar_indice(
 
     from pinecone import ServerlessSpec
 
-    logger.info("Creando indice serverless '%s' (%s, %s, dimension %s)...", nombre, cloud, region, dimension)
+    logger.info("Creando índice serverless '%s' (%s, %s, dimensión %s)...", nombre, cloud, region, dimension)
     pc.create_index(
         name=nombre,
         dimension=dimension,
@@ -95,7 +95,7 @@ def asegurar_indice(
 
 
 def main(argv: list[str] | None = None) -> int:
-    argparse.ArgumentParser(description="Crea el indice de Pinecone Serverless si no existe.").parse_args(argv)
+    argparse.ArgumentParser(description="Crea el índice de Pinecone Serverless si no existe.").parse_args(argv)
 
     from dotenv import load_dotenv
 

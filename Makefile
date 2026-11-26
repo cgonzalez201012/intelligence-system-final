@@ -34,7 +34,7 @@ up:
 detener:
 	./run.sh --detener
 
-# Comprueba contra el Redis REAL: modulos, checkpoints, pausa y reanudacion (no usa la API de Anthropic)
+# Comprueba contra el Redis REAL: modulos, checkpoints, pausa y reanudación (no usa la API de Anthropic)
 verificar:
 	python scripts/verificar_entorno.py
 
