@@ -34,7 +34,3 @@ class NamespaceVacioError(RagError):
 
 class FiltroSinResultadosError(RagError):
     """El filtro por metadatos (por ejemplo una categoria) no coincide con ningun documento."""
-
-
-class GoldenSetError(RagError):
-    """El archivo del golden set no existe o no tiene el formato esperado."""

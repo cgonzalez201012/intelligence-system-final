@@ -49,6 +49,10 @@ EMBED_BATCH_SIZE = 20              # textos por llamada a la API de embeddings
 EMBED_MAX_INTENTOS = 4             # el primero + 3 reintentos ante cuota agotada (429)
 EMBED_ESPERA_INICIAL_S = 10.0      # se duplica en cada reintento: 10 s, 20 s, 40 s
 
+# --- Consulta: reintentos ante cuota agotada de Gemini (429) -----------------------------
+BUSQUEDA_MAX_INTENTOS = 3
+BUSQUEDA_ESPERA_INICIAL_S = 2.0
+
 # --- Chunking (consigna: punto medio de ~500-800 tokens) ---------------------------------
 CHUNK_SIZE_TOKENS = 600
 CHUNK_OVERLAP_TOKENS = 60
@@ -56,7 +60,7 @@ TOKEN_ENCODING = "cl100k_base"     # solo para MEDIR fragmentos (aproximacion pa
 CARACTERES_POR_TOKEN_APROX = 3.5   # plan B si tiktoken no puede bajar su vocabulario
 
 # --- Recuperacion hibrida ----------------------------------------------------------------
-TOP_K = 5                          # la consigna pide los 5 mejores
+TOP_K = 5                          # los 5 mejores fragmentos (la herramienta del agente pide menos: ver research_agent.py)
 PESOS_HIBRIDO = (0.5, 0.5)         # (BM25, vectorial): igual peso a lo lexico y a lo semantico
 # Cuantos fragmentos aporta CADA recuperador a la fusion antes de recortar a TOP_K (debe ser >= TOP_K).
 # Con mas candidatos, un fragmento que ambos recuperadores ven (aunque sea en el puesto 7) llega a sumar los dos
@@ -108,7 +112,7 @@ def cargar_configuracion(
     if faltan:
         raise ConfiguracionError(
             f"Faltan variables de entorno: {', '.join(faltan)}. "
-            "Copia .env.example como .env y completalo (el .env nunca se sube al repo). "
+            "Copiá .env.example como .env y completalo (el .env nunca se sube al repo). "
             "PINECONE_API_KEY se crea en https://app.pinecone.io y GOOGLE_API_KEY en "
             "https://aistudio.google.com/apikey"
         )

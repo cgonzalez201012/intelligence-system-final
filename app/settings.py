@@ -15,7 +15,7 @@ from orquestador.errores import ErrorConfiguracion
 REDIS_URL_POR_DEFECTO = "redis://localhost:6379"
 PHOENIX_ENDPOINT_POR_DEFECTO = "http://localhost:6006/v1/traces"
 PHOENIX_PROYECTO_POR_DEFECTO = "orquestador-gobierno-de-datos"
-VERSION_PROMPTS_POR_DEFECTO = "m7-v1"
+VERSION_PROMPTS_POR_DEFECTO = "final-v1"
 JOB_TIMEOUT_POR_DEFECTO = 300
 MARGEN_HUERFANOS_SEGUNDOS = 60
 _VERDADERO = {"1", "true", "yes", "si", "sí", "on"}

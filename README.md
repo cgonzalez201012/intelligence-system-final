@@ -5,7 +5,7 @@ Entrega final del curso de AI Engineering. Integré en un solo servicio lo que f
 **orquestador multi-agente con supervisor** (LangGraph), una **API asíncrona** (FastAPI + worker + cola en Redis), **trazabilidad**
 completa en Arize Phoenix, **checkpoints** en Redis y un paso de **aprobación humana** antes de ejecutar acciones con efecto externo.
 
-Se levanta con una instrucción (`./run.sh`) y lo probé de punta a punta en mi computadora: las 6 corridas de evidencia están
+Lo levanto con una sola instrucción (`./run.sh`) y lo probé de punta a punta en mi computadora: las 6 corridas de evidencia están
 en [docs/evidencia/corridas.md](docs/evidencia/corridas.md).
 
 ## Decisiones principales
@@ -96,7 +96,7 @@ El mismo diagrama, generado por LangGraph a partir del grafo real, está en [doc
 
 ## Cómo levantarlo (una instrucción)
 
-Necesitás Docker Desktop abierto y tres claves gratuitas o propias: Anthropic, Pinecone y Google AI Studio (Gemini).
+Necesitás Docker Desktop abierto y tres claves: Anthropic (es paga; las 6 corridas de evidencia costaron unos USD 0,30), Pinecone y Google AI Studio para Gemini (las dos con plan gratuito).
 
 ```bash
 cp .env.example .env     # completá ANTHROPIC_API_KEY, PINECONE_API_KEY y GOOGLE_API_KEY (el .env está en .gitignore)
@@ -190,7 +190,9 @@ Dos detalles de la corrida real: la imagen actual de Phoenix pide login y rechaz
 
 ## Robustez y recuperación
 
-- **Worker que se cae**: el checkpoint queda en Redis. Si se interrumpe una **reanudación** (después de aprobar), un barrido la reencola de forma atómica, hasta 2 veces. Si se interrumpe una primera ejecución, el job pasa a `FAILED` con el motivo ("volvé a enviarla") después de unos 6 minutos y medio (`JOB_TIMEOUT_SEGUNDOS`, 300 s, más 60 s de margen y hasta 30 s del intervalo del barrido), para que ningún cliente consulte para siempre. Los jobs que todavía esperan en la cola y las reanudaciones sí sobreviven. El Compose reinicia solo la API y el worker (`restart: unless-stopped`).
+- **Worker que se cae**: el checkpoint queda en Redis. Si se interrumpe una **reanudación** (después de aprobar), un barrido la reencola de forma atómica, hasta 2 veces.
+- **Primera ejecución interrumpida**: el job pasa a `FAILED` con el motivo ("volvé a enviarla") a los 6 minutos y medio, que salen de `JOB_TIMEOUT_SEGUNDOS` (300 s), 60 s de margen y hasta 30 s del intervalo del barrido. Así ningún cliente consulta para siempre. Los jobs que todavía esperan en la cola sobreviven.
+- **Reinicio automático**: el Compose reinicia solo la API y el worker (`restart: unless-stopped`).
 - **Aviso de escalamiento sin duplicados ni pérdidas**: la marca tiene dos estados (`pendiente` / `enviado`); si el worker cae entre reservar el envío y enviarlo, al reintentar se mira la bandeja y el aviso ni se repite ni se pierde.
 - **Apagado ordenado**: con `docker compose stop` el worker espera hasta 6 minutos a que terminen los jobs en curso.
 - **Citas**: un informe que cite una política que no se recuperó es rechazado por la validación y reintentado.
@@ -200,7 +202,7 @@ Los escenarios de caída están cubiertos en [tests/test_hitl_caida_de_worker.py
 ## Prueba de carga (medida en la pre-entrega 7, antes de sumar el RAG)
 
 Con la API y el worker andando: `python scripts/carga.py --precio-entrada 1 --precio-salida 5` dispara 5 `POST /tasks` a la vez, consulta cada job hasta que termina y calcula
-p50, **p95** y el **costo por ejecución**. Medido sobre la versión sin RAG: p95 de **35,31 s** (p50 32,69 s) y entre USD 0,04 y 0,05 por ejecución
+p50, **p95** y el **costo por ejecución**. Medido sobre la versión sin RAG: p95 de **35,31 s** (p50 32,69 s) según Phoenix, que mide la latencia del grafo, y de 36,2 s medido desde el cliente, que suma la espera en la cola y el sondeo ([resumen](docs/evidencia/carga-5-concurrentes.json)); el costo fue de entre USD 0,04 y 0,05 por ejecución
 ([captura del p95](screenshots/p95-latencia-5-concurrentes.png), [costo por ejecución](screenshots/costo-por-ejecucion-tabla.png)). Correr 5 a la vez no las hizo más
 lentas: la API acepta cada pedido en milisegundos y el worker los corre en paralelo. La latencia sale de la cadena de llamadas al modelo, no de las herramientas.
 No repetí esta medición con el RAG; las 6 corridas de arriba son la evidencia de la versión final (entre 12 y 49 s por corrida). Con 5 muestras el p95 es casi el máximo:
@@ -210,7 +212,7 @@ sirve para ver que la cola no se dispara, no para prometer un SLA.
 
 ```bash
 pytest          # sin claves ni Redis: modelos falsos y Redis simulado
-mypy app orquestador rag scripts
+mypy .
 ```
 
 Más de 550 pruebas, sin gastar la API: contratos de la API y del RAG, integridad de las citas, que la API no espere al grafo, que 5 jobs corran en paralelo, que no se ejecute ninguna

@@ -176,7 +176,7 @@ async def aprobar_tarea(
     respuesta: Response,
     almacen: AlmacenDeJobs = Depends(almacen_de),
 ) -> TareaCreada:
-    """Entrega la senal externa que reanuda el grafo. No lo corre: registra la decision y encola la reanudacion."""
+    """Entrega la señal externa que reanuda el grafo. No lo corre: registra la decisión y encola la reanudación."""
     job = await almacen.obtener(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="No existe un job con ese ID (o ya expiró).")

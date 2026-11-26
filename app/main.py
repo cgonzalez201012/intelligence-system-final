@@ -32,8 +32,8 @@ from app.settings import Ajustes
 
 DESCRIPCION = """
 Expone el sistema de inteligencia (supervisor + investigador con RAG, analista y redactor)
-como un servicio de produccion: las tareas se encolan en Redis, las corre un worker aparte y las que
-tienen un efecto externo (escalar un incidente critico) se pausan hasta que una persona las apruebe.
+como un servicio de producción: las tareas se encolan en Redis, las corre un worker aparte y las que
+tienen un efecto externo (escalar un incidente crítico) se pausan hasta que una persona las apruebe.
 Los datos son ficticios (Mercado Austral S.A.).
 """
 

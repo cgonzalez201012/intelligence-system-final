@@ -32,7 +32,7 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, get_args
 
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
@@ -48,11 +48,11 @@ from rag.schemas import ConsultaRAG, FragmentoRecuperado, ModoBusqueda, Resultad
 
 logger = logging.getLogger("rag.sistema")
 
-MODOS = ("bm25", "vectorial", "hibrido")   # el sistema final va al ultimo
+MODOS = get_args(ModoBusqueda)   # una sola definición: la del esquema
 
 # Reintentos de la consulta ante cuota agotada de Gemini (429): espera creciente, sin bloquear el loop.
-BUSQUEDA_MAX_INTENTOS = 3
-BUSQUEDA_ESPERA_INICIAL_S = 2.0
+BUSQUEDA_MAX_INTENTOS = config.BUSQUEDA_MAX_INTENTOS
+BUSQUEDA_ESPERA_INICIAL_S = config.BUSQUEDA_ESPERA_INICIAL_S
 
 _TERMINO = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
@@ -121,7 +121,7 @@ class RAGSystem:
         candidatos: int | None = None,
     ) -> None:
         if not documentos:
-            raise NamespaceVacioError("No hay documentos para armar el recuperador. Indexa primero: python -m rag.ingest")
+            raise NamespaceVacioError("No hay documentos para armar el recuperador. Indexá primero: python -m rag.ingest")
         if k < 1:
             raise ValueError("k debe ser >= 1")
         if len(pesos) != 2 or min(pesos) < 0 or sum(pesos) <= 0:
@@ -161,8 +161,8 @@ class RAGSystem:
         corpus = await asyncio.to_thread(cargar_corpus, index, namespace)
         if not corpus:
             raise NamespaceVacioError(
-                f"El namespace '{namespace}' no tiene fragmentos. Indexa primero: python -m rag.ingest "
-                "(si lo acabas de correr, espera unos segundos: Pinecone es eventualmente consistente)."
+                f"El namespace '{namespace}' no tiene fragmentos. Indexá primero: python -m rag.ingest "
+                "(si lo acabás de correr, esperá unos segundos: Pinecone es eventualmente consistente)."
             )
         return cls(vectorstore, corpus, **opciones)
 
@@ -184,7 +184,7 @@ class RAGSystem:
         else:
             documentos = [d for d in self._documentos if d.metadata.get("categoria") == categoria]
             if not documentos:
-                disponibles = sorted({str(d.metadata.get("categoria")) for d in self._documentos})
+                disponibles = self.categorias
                 raise FiltroSinResultadosError(
                     f"No hay documentos de la categoria '{categoria}'. Categorias disponibles: {disponibles}."
                 )
@@ -242,8 +242,8 @@ class RAGSystem:
                     raise
                 if intento == BUSQUEDA_MAX_INTENTOS:
                     raise EmbeddingsError(
-                        f"Gemini siguio limitando el uso tras {BUSQUEDA_MAX_INTENTOS} intentos al buscar. "
-                        "Es la cuota gratis: espera un minuto y volve a intentar."
+                        f"Gemini siguió limitando el uso tras {BUSQUEDA_MAX_INTENTOS} intentos al buscar. "
+                        "Es la cuota gratis: esperá un minuto y volvé a intentar."
                     ) from exc
                 logger.warning("Limite de uso al buscar (intento %s/%s). Espero %.0f s...", intento, BUSQUEDA_MAX_INTENTOS, espera)
                 await asyncio.sleep(espera)

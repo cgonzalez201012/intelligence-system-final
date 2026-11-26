@@ -55,7 +55,7 @@ def test_un_indice_existente_con_otra_dimension_falla_y_no_se_modifica():
 def test_si_el_indice_nunca_queda_listo_falla_con_un_mensaje_claro():
     pc = FakePinecone(listo_tras=10**6)
     reloj = iter(range(0, 10_000, 100))
-    with pytest.raises(IndiceError, match="no quedo listo"):
+    with pytest.raises(IndiceError, match="no quedó listo"):
         setup_index.asegurar_indice(
             pc, "mi-indice", max_espera_s=250, dormir=lambda s: None, reloj=lambda: next(reloj)
         )

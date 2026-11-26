@@ -267,7 +267,7 @@ class ResultadoValidacion(_Modelo):
 
 
 class AccionPropuesta(_Modelo):
-    """Una accion con efecto secundario que el sistema propone y que NO se ejecuta sin aprobacion humana."""
+    """Una acción con efecto secundario que el sistema propone y que NO se ejecuta sin aprobación humana."""
 
     tipo: Literal["escalar_incidente"] = "escalar_incidente"
     incidente_id: str
@@ -278,7 +278,7 @@ class AccionPropuesta(_Modelo):
 
 
 class DecisionHumana(_Modelo):
-    """La senal externa que reanuda el grafo: la decision de una persona sobre las acciones propuestas."""
+    """La señal externa que reanuda el grafo: la decisión de una persona sobre las acciones propuestas."""
 
     aprobada: bool
     revisor: str = Field(min_length=1, max_length=80)
@@ -286,7 +286,7 @@ class DecisionHumana(_Modelo):
 
 
 class ResultadoAccion(_Modelo):
-    """Que paso con una accion propuesta cuando se la mando a ejecutar."""
+    """Qué pasó con una acción propuesta cuando se la mandó a ejecutar."""
 
     incidente_id: str
     destinatario: str

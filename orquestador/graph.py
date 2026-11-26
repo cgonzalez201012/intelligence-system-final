@@ -27,7 +27,6 @@ from langgraph.graph.state import CompiledStateGraph
 from orquestador.agents.analyst_agent import crear_nodo_analista
 from orquestador.agents.research_agent import crear_nodo_investigador
 from orquestador.agents.writer_agent import crear_nodo_redactor
-from orquestador.config import Configuracion
 from orquestador.state import EstadoOrquestador
 from orquestador.supervisor import crear_nodo_supervisor
 from orquestador.validacion import nodo_validacion

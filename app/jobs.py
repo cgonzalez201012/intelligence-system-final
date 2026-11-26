@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import WatchError
 
-from app.schemas import EstadoJob, MensajeDeCola, TareaEstado
+from app.schemas import ESTADOS_FINALES, EstadoJob, MensajeDeCola, TareaEstado
 
 COLA_DE_TAREAS = "cola:tareas"
 MAX_RECUPERACIONES = 2  # veces que se reencola una reanudacion interrumpida antes de darla por fallida
@@ -89,7 +89,7 @@ class AlmacenDeJobs:
         instante = ahora()
         a_guardar: dict[Any, Any] = {"estado": estado, "actualizado_en": instante}
         a_borrar: list[str] = []
-        if estado in ("DONE", "FAILED"):
+        if estado in ESTADOS_FINALES:
             a_guardar["finalizado_en"] = instante
         for nombre, valor in campos.items():
             if valor is None:

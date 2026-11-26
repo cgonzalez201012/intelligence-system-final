@@ -24,7 +24,7 @@ def crear_embeddings(cfg: config.Configuracion) -> Embeddings:
     """
     if not cfg.google_api_key:
         raise ConfiguracionError(
-            "Falta GOOGLE_API_KEY. Crea una clave gratis en https://aistudio.google.com/apikey "
+            "Falta GOOGLE_API_KEY. Creá una clave gratis en https://aistudio.google.com/apikey "
             "y agregala al archivo .env."
         )
 
@@ -59,8 +59,8 @@ def _con_reintentos(
                 raise
             if intento == intentos:
                 raise EmbeddingsError(
-                    f"Gemini siguio rechazando las llamadas por limite de uso tras {intentos} intentos. "
-                    "Es la cuota gratis (por minuto o por dia). Espera un rato y volve a correr el script: "
+                    f"Gemini siguió rechazando las llamadas por límite de uso tras {intentos} intentos. "
+                    "Es la cuota gratis (por minuto o por día). Esperá un rato y volvé a correr el script: "
                     "lo ya indexado no se repite."
                 ) from exc
             logger.warning("Limite de uso de Gemini (intento %s/%s). Espero %.0f s...", intento, intentos, espera)

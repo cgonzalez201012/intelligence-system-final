@@ -177,7 +177,7 @@ def test_borrar_namespace_propaga_los_errores_que_no_son_404():
 
 @pytest.mark.parametrize(
     ("estado", "fragmento"),
-    [(401, "PINECONE_API_KEY"), (403, "us-east-1"), (404, "rag.setup_index"), (429, "Espera")],
+    [(401, "PINECONE_API_KEY"), (403, "us-east-1"), (404, "rag.setup_index"), (429, "Esperá")],
 )
 def test_traduce_los_errores_http_de_pinecone(estado, fragmento):
     assert fragmento in almacen.explicar_error_pinecone(ErrorHTTP(estado))

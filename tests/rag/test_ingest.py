@@ -403,7 +403,7 @@ def test_main_ingesta_completa(datos, pc, monkeypatch, capsys):
     assert "namespace actualizado" in primera and "mercado-austral" in primera
 
     assert ingest.main(["--data", str(datos)]) == 0
-    assert "ya estaba al dia" in capsys.readouterr().out
+    assert "ya estaba al día" in capsys.readouterr().out
 
 
 def test_el_dataset_real_se_fragmenta_en_el_rango_de_la_consigna():

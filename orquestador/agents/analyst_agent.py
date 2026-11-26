@@ -144,10 +144,10 @@ async def calcular_vencimiento_sla(
 async def priorizar_incidentes(items: list[ItemPrioridad]) -> str:
     """Ordena los incidentes del más urgente al menos urgente.
 
-    Usala UNA sola vez, al final, con todos los incidentes y despues de haber calculado el
-    vencimiento de cada uno (necesitas vencido y exceso_horas). El criterio es: primero la
-    severidad, despues si el SLA esta vencido, despues las horas pasadas del plazo y por
-    ultimo los registros afectados.
+    Usala UNA sola vez, al final, con todos los incidentes y después de haber calculado el
+    vencimiento de cada uno (necesitás vencido y exceso_horas). El criterio es: primero la
+    severidad, después si el SLA está vencido, después las horas pasadas del plazo y por
+    último los registros afectados.
 
     Devuelve un JSON con 'ranking': la lista de IDs de incidente, el primero es el mas urgente.
     """

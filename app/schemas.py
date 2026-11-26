@@ -14,7 +14,7 @@ ESTADOS_FINALES: frozenset[str] = frozenset({"DONE", "FAILED"})
 
 
 class AprobacionIn(DecisionHumana):
-    """Cuerpo de POST /tasks/{id}/approve: el mismo contrato que usa el grafo, sin campos de mas y con ejemplo."""
+    """Cuerpo de POST /tasks/{id}/approve: el mismo contrato que usa el grafo, sin campos de más y con ejemplo."""
 
     model_config = ConfigDict(
         frozen=True,
@@ -26,7 +26,7 @@ class AprobacionIn(DecisionHumana):
 class ErrorApi(BaseModel):
     """Forma de todos los errores que devuelve la API (404, 409, 503...)."""
 
-    detail: str = Field(description="Que paso y, cuando se puede, que hacer.")
+    detail: str = Field(description="Qué pasó y, cuando se puede, qué hacer.")
 
 
 class Salud(BaseModel):
@@ -74,7 +74,7 @@ class TareaCreada(BaseModel):
 
 
 class UsoDelModelo(BaseModel):
-    """Llamadas y tokens gastados por el job (el costo en dolares lo calcula el dashboard de trazas)."""
+    """Llamadas y tokens gastados por el job (el costo en dólares lo calcula el dashboard de trazas)."""
 
     llamadas_al_modelo: int = 0
     tokens_entrada: int = 0
@@ -89,7 +89,7 @@ class UsoDelModelo(BaseModel):
 
 
 class AccionesDelJob(BaseModel):
-    """Lo que paso con las acciones criticas: que se propuso, que decidio la persona y que se ejecuto."""
+    """Lo que pasó con las acciones críticas: qué se propuso, qué decidió la persona y qué se ejecutó."""
 
     propuestas: list[AccionPropuesta] = Field(default_factory=list)
     decision: DecisionHumana | None = None
@@ -105,7 +105,7 @@ class ResultadoTarea(BaseModel):
     respuesta: str
     fuentes_citadas: list[str] = Field(
         default_factory=list,
-        description="Politicas del RAG que la respuesta cita, con su codigo y fuente (por ejemplo 'GD-POL-001 (01-politica.md, pag. 1)').",
+        description="Políticas del RAG que la respuesta cita, con su código y fuente (por ejemplo 'GD-POL-001 (01-politica.md, pág. 1)').",
     )
     agentes_que_intervinieron: list[str] = Field(default_factory=list)
     delegaciones: int = 0
@@ -130,7 +130,7 @@ class TareaEstado(BaseModel):
     uso: UsoDelModelo = Field(default_factory=UsoDelModelo)
     segundos_de_ejecucion: float = 0.0
     recuperaciones: int = Field(
-        default=0, description="Veces que otro worker retomo este job desde su checkpoint porque el anterior se cayo."
+        default=0, description="Veces que otro worker retomó este job desde su checkpoint porque el anterior se cayó."
     )
 
 

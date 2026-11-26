@@ -188,7 +188,7 @@ def cargar_documentos(data_dir: Path | str = config.DATA_DIR) -> list[Documento]
     )
     if not archivos:
         raise IngestaError(
-            f"No hay archivos {', '.join(config.EXTENSIONES_VALIDAS)} en {carpeta}. Agrega al menos uno para poder indexar."
+            f"No hay archivos {', '.join(config.EXTENSIONES_VALIDAS)} en {carpeta}. Agregá al menos uno para poder indexar."
         )
 
     documentos: list[Documento] = []
@@ -325,8 +325,8 @@ def verificar_dimension(vectores: list[list[float]], esperada: int = config.EMBE
     for vector in vectores:
         if len(vector) != esperada:
             raise DimensionNoCoincideError(
-                f"El modelo de embeddings devolvio vectores de {len(vector)} dimensiones y el indice espera "
-                f"{esperada}. Revisa EMBEDDING_DIMENSION en config.py (no se subio nada a Pinecone)."
+                f"El modelo de embeddings devolvió vectores de {len(vector)} dimensiones y el índice espera "
+                f"{esperada}. Revisá EMBEDDING_DIMENSION en config.py (no se subio nada a Pinecone)."
             )
 
 
@@ -440,11 +440,11 @@ def ingestar(
 # --------------------------------------------------------------------------- CLI
 def _imprimir_dry_run(documentos: list[Documento], fragmentos: list[Document], medicion: str) -> None:
     tokens = [f.metadata["tokens"] for f in fragmentos]
-    print("\nDRY RUN: no se uso ninguna clave ni se subio nada a Pinecone.")
+    print("\nDRY RUN: no se usó ninguna clave ni se subió nada a Pinecone.")
     print(f"  Archivos .............. {len(documentos)}")
     print(f"  Fragmentos ............ {len(fragmentos)}")
     print(f"  Tokens por fragmento .. min {min(tokens)} / prom {round(sum(tokens) / len(tokens), 1)} / max {max(tokens)}")
-    print(f"  Medicion de tokens .... {medicion}")
+    print(f"  Medición de tokens .... {medicion}")
     for doc in documentos:
         cantidad = sum(1 for f in fragmentos if f.metadata["documento_id"] == doc.documento_id)
         print(f"    - {doc.fuente}: {cantidad} fragmentos, categoria '{doc.categoria}', codigo {doc.codigo}")
@@ -486,19 +486,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {mensaje}", file=sys.stderr)
         return 1
 
-    estado = "el namespace ya estaba al dia (no se escribio nada)" if reporte.base_al_dia else "namespace actualizado"
+    estado = "el namespace ya estaba al día (no se escribió nada)" if reporte.base_al_dia else "namespace actualizado"
     print(f"\nIngesta completa: {estado}")
-    print(f"  Archivos leidos ....... {reporte.archivos}")
+    print(f"  Archivos leídos ....... {reporte.archivos}")
     print(f"  Fragmentos vigentes ... {reporte.fragmentos}")
     print(f"  Nuevos (embebidos) .... {reporte.nuevos}  en {reporte.lotes_upsert} lote(s) de upsert")
     print(f"  Sin cambios ........... {reporte.sin_cambios}")
     print(f"  Eliminados ............ {reporte.eliminados}")
-    print(f"  Por categoria ......... {reporte.por_categoria}")
+    print(f"  Por categoría ......... {reporte.por_categoria}")
     print(f"  Tokens por fragmento .. min {reporte.tokens_min} / prom {reporte.tokens_promedio} / max {reporte.tokens_max}")
-    print(f"  Medicion de tokens .... {reporte.medicion_tokens}")
-    print(f"  Destino ............... indice '{reporte.indice}', namespace '{reporte.namespace}'")
+    print(f"  Medición de tokens .... {reporte.medicion_tokens}")
+    print(f"  Destino ............... índice '{reporte.indice}', namespace '{reporte.namespace}'")
     if not reporte.visible:
-        print("  AVISO: Pinecone todavia no refleja todos los vectores (consistencia eventual). Espera unos segundos.")
+        print("  AVISO: Pinecone todavía no refleja todos los vectores (consistencia eventual). Esperá unos segundos.")
     return 0
 
 

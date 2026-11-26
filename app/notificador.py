@@ -1,6 +1,6 @@
 """Efecto secundario de las acciones criticas: escalar un incidente al responsable.
 
-En esta pre-entrega el envio es SIMULADO (la empresa y los datos son ficticios): "enviar" es
+En este proyecto el envío es SIMULADO (la empresa y los datos son ficticios): "enviar" es
 anotar el escalamiento en la bandeja de salida `escalaciones:enviadas` de Redis. Es una
 herramienta con efecto externo de todas formas: lo que importa es que SOLO corre despues de
 la aprobacion humana, y que correrla dos veces no duplica el aviso.

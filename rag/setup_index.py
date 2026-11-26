@@ -55,8 +55,8 @@ def esperar_indice_listo(
     while not _esta_listo(pc.describe_index(nombre)):
         if reloj() >= limite:
             raise IndiceError(
-                f"El indice '{nombre}' no quedo listo en {max_espera_s:.0f} s. Mira su estado en la consola de "
-                "Pinecone y volve a correr python -m rag.setup_index."
+                f"El índice '{nombre}' no quedó listo en {max_espera_s:.0f} s. Mirá su estado en la consola de "
+                "Pinecone y volvé a correr python -m rag.setup_index."
             )
         dormir(intervalo_s)
 
@@ -116,11 +116,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {mensaje}", file=sys.stderr)
         return 1
 
-    accion = "creado y listo" if estado.creado else "ya existia (no se modifico)"
-    print(f"\nIndice '{estado.nombre}': {accion}")
+    accion = "creado y listo" if estado.creado else "ya existía (no se modificó)"
+    print(f"\nÍndice '{estado.nombre}': {accion}")
     print(f"  Tipo ........ Serverless ({estado.cloud}, {estado.region})")
-    print(f"  Dimension ... {estado.dimension}  (= dimension de {config.modelo_de_embeddings()})")
-    print(f"  Metrica ..... {estado.metrica}")
+    print(f"  Dimensión ... {estado.dimension}  (= dimensión de {config.modelo_de_embeddings()})")
+    print(f"  Métrica ..... {estado.metrica}")
     print("Siguiente paso: python -m rag.ingest")
     return 0
 

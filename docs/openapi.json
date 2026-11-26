@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "AccionPropuesta": {
-        "description": "Una accion con efecto secundario que el sistema propone y que NO se ejecuta sin aprobacion humana.",
+        "description": "Una acción con efecto secundario que el sistema propone y que NO se ejecuta sin aprobación humana.",
         "properties": {
           "destinatario": {
             "title": "Destinatario",
@@ -49,7 +49,7 @@
         "type": "object"
       },
       "AccionesDelJob": {
-        "description": "Lo que paso con las acciones criticas: que se propuso, que decidio la persona y que se ejecuto.",
+        "description": "Lo que pasó con las acciones críticas: qué se propuso, qué decidió la persona y qué se ejecutó.",
         "properties": {
           "decision": {
             "anyOf": [
@@ -81,7 +81,7 @@
       },
       "AprobacionIn": {
         "additionalProperties": false,
-        "description": "Cuerpo de POST /tasks/{id}/approve: el mismo contrato que usa el grafo, sin campos de mas y con ejemplo.",
+        "description": "Cuerpo de POST /tasks/{id}/approve: el mismo contrato que usa el grafo, sin campos de más y con ejemplo.",
         "example": {
           "aprobada": true,
           "comentario": "Escalar a los responsables.",
@@ -147,7 +147,7 @@
         "type": "object"
       },
       "DecisionHumana": {
-        "description": "La senal externa que reanuda el grafo: la decision de una persona sobre las acciones propuestas.",
+        "description": "La señal externa que reanuda el grafo: la decisión de una persona sobre las acciones propuestas.",
         "properties": {
           "aprobada": {
             "title": "Aprobada",
@@ -177,7 +177,7 @@
         "description": "Forma de todos los errores que devuelve la API (404, 409, 503...).",
         "properties": {
           "detail": {
-            "description": "Que paso y, cuando se puede, que hacer.",
+            "description": "Qué pasó y, cuando se puede, qué hacer.",
             "title": "Detail",
             "type": "string"
           }
@@ -202,7 +202,7 @@
         "type": "object"
       },
       "ResultadoAccion": {
-        "description": "Que paso con una accion propuesta cuando se la mando a ejecutar.",
+        "description": "Qué pasó con una acción propuesta cuando se la mandó a ejecutar.",
         "properties": {
           "destinatario": {
             "title": "Destinatario",
@@ -267,7 +267,7 @@
             "title": "Estado Final"
           },
           "fuentes_citadas": {
-            "description": "Politicas del RAG que la respuesta cita, con su codigo y fuente (por ejemplo 'GD-POL-001 (01-politica.md, pag. 1)').",
+            "description": "Políticas del RAG que la respuesta cita, con su código y fuente (por ejemplo 'GD-POL-001 (01-politica.md, pág. 1)').",
             "items": {
               "type": "string"
             },
@@ -414,7 +414,7 @@
           },
           "recuperaciones": {
             "default": 0,
-            "description": "Veces que otro worker retomo este job desde su checkpoint porque el anterior se cayo.",
+            "description": "Veces que otro worker retomó este job desde su checkpoint porque el anterior se cayó.",
             "title": "Recuperaciones",
             "type": "integer"
           },
@@ -473,7 +473,7 @@
         "type": "object"
       },
       "UsoDelModelo": {
-        "description": "Llamadas y tokens gastados por el job (el costo en dolares lo calcula el dashboard de trazas).",
+        "description": "Llamadas y tokens gastados por el job (el costo en dólares lo calcula el dashboard de trazas).",
         "properties": {
           "llamadas_al_modelo": {
             "default": 0,
@@ -537,7 +537,7 @@
     }
   },
   "info": {
-    "description": "\nExpone el sistema de inteligencia (supervisor + investigador con RAG, analista y redactor)\ncomo un servicio de produccion: las tareas se encolan en Redis, las corre un worker aparte y las que\ntienen un efecto externo (escalar un incidente critico) se pausan hasta que una persona las apruebe.\nLos datos son ficticios (Mercado Austral S.A.).\n",
+    "description": "\nExpone el sistema de inteligencia (supervisor + investigador con RAG, analista y redactor)\ncomo un servicio de producción: las tareas se encolan en Redis, las corre un worker aparte y las que\ntienen un efecto externo (escalar un incidente crítico) se pausan hasta que una persona las apruebe.\nLos datos son ficticios (Mercado Austral S.A.).\n",
     "title": "API de producción: orquestador multi-agente",
     "version": "1.0.0"
   },
@@ -690,7 +690,7 @@
     },
     "/tasks/{job_id}/approve": {
       "post": {
-        "description": "Entrega la senal externa que reanuda el grafo. No lo corre: registra la decision y encola la reanudacion.",
+        "description": "Entrega la señal externa que reanuda el grafo. No lo corre: registra la decisión y encola la reanudación.",
         "operationId": "aprobar_tarea_tasks__job_id__approve_post",
         "parameters": [
           {

@@ -42,16 +42,16 @@ def explicar_error_pinecone(exc: BaseException) -> str | None:
     """Traduce los errores HTTP mas comunes de Pinecone a un mensaje accionable. None si no es de Pinecone."""
     estado = getattr(exc, "status", None)
     if estado == 401:
-        return "Pinecone rechazo la clave. Revisa PINECONE_API_KEY en el .env (sin comillas ni espacios)."
+        return "Pinecone rechazó la clave. Revisá PINECONE_API_KEY en el .env (sin comillas ni espacios)."
     if estado == 403:
         return (
-            "Pinecone nego la operacion (403). Con el plan gratis el limite es de 5 indices y 2 GB, y solo se "
-            "pueden crear indices en AWS us-east-1. Borra un indice que no uses desde la consola de Pinecone."
+            "Pinecone negó la operación (403). Con el plan gratis el límite es de 5 índices y 2 GB, y solo se "
+            "pueden crear índices en AWS us-east-1. Borrá un índice que no uses desde la consola de Pinecone."
         )
     if estado == 404:
-        return "Pinecone no encontro el recurso (404). Verifica INDEX_NAME y que hayas corrido python -m rag.setup_index."
+        return "Pinecone no encontró el recurso (404). Verificá INDEX_NAME y que hayas corrido python -m rag.setup_index."
     if estado == 429:
-        return "Pinecone limito el uso (429). Espera un minuto y volve a correr el script."
+        return "Pinecone limitó el uso (429). Esperá un minuto y volvé a correr el script."
     return None
 
 
@@ -72,18 +72,18 @@ def verificar_indice_compatible(
     dim_indice = leer_campo(descripcion, "dimension")
     if dim_indice != dimension:
         raise DimensionNoCoincideError(
-            f"El indice '{nombre}' tiene dimension {dim_indice} y los embeddings ({config.modelo_de_embeddings()}) "
+            f"El índice '{nombre}' tiene dimensión {dim_indice} y los embeddings ({config.modelo_de_embeddings()}) "
             f"producen vectores de {dimension}. Pinecone no acepta vectores de otro tamano. "
-            "Usa otro INDEX_NAME, o borra ese indice desde la consola de Pinecone y volve a correr "
+            "Usá otro INDEX_NAME, o borrá ese índice desde la consola de Pinecone y volvé a correr "
             "python -m rag.setup_index."
         )
     valor = leer_campo(descripcion, "metric", "")
     metrica_indice = str(getattr(valor, "value", valor)).lower()
     if metrica not in metrica_indice:
         raise IndiceError(
-            f"El indice '{nombre}' usa la metrica '{metrica_indice}' y el proyecto usa '{metrica}'. "
-            "Los embeddings de este modelo estan pensados para similitud coseno: usa otro INDEX_NAME "
-            "o recrea el indice."
+            f"El índice '{nombre}' usa la métrica '{metrica_indice}' y el proyecto usa '{metrica}'. "
+            "Los embeddings de este modelo están pensados para similitud coseno: usá otro INDEX_NAME "
+            "o recreá el índice."
         )
 
 
@@ -91,7 +91,7 @@ def abrir_indice(pc: Any, nombre: str) -> Any:
     """Devuelve el indice, verificando antes que exista y sea compatible. NO lo crea (eso es setup_index.py)."""
     if not pc.has_index(nombre):
         raise IndiceError(
-            f"El indice '{nombre}' no existe en Pinecone. Crealo con: python -m rag.setup_index"
+            f"El índice '{nombre}' no existe en Pinecone. Crealo con: python -m rag.setup_index"
         )
     verificar_indice_compatible(pc.describe_index(nombre), nombre)
     return pc.Index(nombre)
