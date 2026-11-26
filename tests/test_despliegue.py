@@ -182,4 +182,4 @@ def test_la_api_y_el_worker_se_reinician_solos_y_el_indexador_no() -> None:
 
     servicios = yaml.safe_load((RAIZ / "docker-compose.yml").read_text(encoding="utf-8"))["services"]
     assert servicios["api"]["restart"] == "unless-stopped" and servicios["worker"]["restart"] == "unless-stopped"
-    assert "restart" not in servicios["indexador"]  # es de un solo uso: reiniciarlo lo haría correr en bucle
+    assert servicios["indexador"]["restart"] == "no"  # es de un solo uso: reiniciarlo lo haría correr en bucle
