@@ -1,0 +1,151 @@
+{
+  "generado_en": "2026-11-25T17:48:39",
+  "url": "http://localhost:8000",
+  "corridas": [
+    {
+      "caso": "1. Solo políticas (RAG)",
+      "tarea": "¿Cuál es el plazo para resolver un incidente crítico y a quién se escala si se vence?",
+      "job_id": "6797c5c25da5416db9d0bedd0a1745f2",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": false,
+      "decision": "",
+      "agentes": [
+        "investigador",
+        "redactor"
+      ],
+      "fuentes_citadas": [
+        "GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1)",
+        "GD-ROL-001 (02-roles-y-responsabilidades.md, pág. 1)"
+      ],
+      "acciones_ejecutadas": 0,
+      "segundos": 48.598,
+      "tokens_entrada": 67191,
+      "tokens_salida": 3138,
+      "respuesta": "# Informe: Plazo SLA y Escalación de Incidentes Críticos\n\n## Conclusión\n\nEl plazo para resolver un incidente crítico es **4 horas hábiles**, vigente desde el 1 de marzo de 2026 según GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1). Cuando este plazo vence, el incidente se escala de inmediato al Data Owner del dominio, saltando el nivel 1. Si el Data Owner no lo resuelve en 3 días hábiles (nivel 2), asciende al Comité de Gobierno de Datos, que lo trata en reunión ordinaria o extraordinaria dentro de 5 días hábiles según GD-ROL-001 (02-roles-y-responsabilidades.md, pág. 1).\n\n## Detalle de escalamiento\n\n- **Nivel 1 (Data Steward):** No aplica para críticos; se salta de inmediato.\n- **Nivel 2 (Data Owner):** Recibe el incidente crítico sin demora. Tiene 3 días hábiles para resolver.\n- **Nivel 3 (Comité):** Si vence el plazo del Data Owner, el Comité lo resuelve en reunión ordinaria o extraordinaria dentro de 5 días hábiles.\n\nFuentes: GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1) y GD-ROL-001 (02-roles-y-responsabilidades.md, pág. 1).",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    },
+    {
+      "caso": "2. Incidentes + políticas, APROBADO",
+      "tarea": "Priorizá los incidentes críticos abiertos del maestro de artículos y citá la política que fija sus plazos.",
+      "job_id": "b6cec444afd9408cb895039102f05ef2",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": true,
+      "decision": "aprobar",
+      "agentes": [
+        "investigador",
+        "analista",
+        "redactor"
+      ],
+      "fuentes_citadas": [
+        "GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1)"
+      ],
+      "acciones_ejecutadas": 2,
+      "segundos": 40.024,
+      "tokens_entrada": 41419,
+      "tokens_salida": 3356,
+      "respuesta": "# INFORME DE PRIORIZACIÓN – INCIDENTES CRÍTICOS DEL MAESTRO DE ARTÍCULOS\n\nLos dos incidentes críticos abiertos del maestro de artículos tienen sus plazos de resolución vencidos desde hace semanas. Ambos incumplen la política **GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1)**, que fija un plazo máximo de **4 horas hábiles** para incidentes críticos por impedir vender, cobrar, facturar o recibir mercadería.\n\nEl incidente prioritario es **INC-1001** por mayor antigüedad y brecha regulatoria más profunda: lleva 280 horas hábiles abierto (276 horas de exceso sobre el SLA) con 312 artículos activos sin código EAN, incumpliendo R-ART-01 en 2.7 puntos porcentuales. Le sigue **INC-1002**, con 72 horas hábiles transcurridas (68 de exceso) y 41 artículos con precio de lista en cero, incumpliendo R-ART-03 en 0.4 pp.\n\n**Ranking de prioridad:**\n\n- **INC-1001** – Artículos activos sin código EAN | Regla R-ART-01 | 312 registros afectados | SLA vencido (276 horas de exceso)\n- **INC-1002** – Precio de lista en cero en artículos de venta | Regla R-ART-03 | 41 registros afectados | SLA vencido (68 horas de exceso)",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    },
+    {
+      "caso": "3. Incidentes críticos, RECHAZADO",
+      "tarea": "Priorizá los incidentes críticos abiertos del maestro de proveedores.",
+      "job_id": "307028e9aa42436aa3798e3f86057966",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": true,
+      "decision": "rechazar",
+      "agentes": [
+        "investigador",
+        "analista",
+        "redactor"
+      ],
+      "fuentes_citadas": [],
+      "acciones_ejecutadas": 0,
+      "segundos": 28.829,
+      "tokens_entrada": 30012,
+      "tokens_salida": 2369,
+      "respuesta": "## INFORME DE PRIORIZACIÓN DE INCIDENTES CRÍTICOS\n### Maestro Proveedores\n\n**Fecha de corte:** 31 de octubre de 2026\n\n---\n\nEl análisis identifica un incidente crítico abierto en el maestro Proveedores que requiere atención inmediata. El INC-2001 presenta un vencimiento severo del SLA con 164 horas hábiles en exceso y una brecha de cumplimiento de 0.8 puntos porcentuales en la regla R-PRV-01. Se trata de CUITs inválidos en proveedores activos que afectan 9 registros y comprometen la integridad del maestro.\n\n**Acción prioritaria inmediata:**\n\n- **INC-2001** – CUIT inválido en proveedores activos | Severidad: Crítica | SLA vencido (164 horas hábiles en exceso) | Regla R-PRV-01: brecha de -0.8pp (medición actual 99.2% vs. umbral 100.0%) | 9 registros afectados | Responsable: Gerente de Compras (Data Owner de Proveedores) | Data Steward: Martín Giménez",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    },
+    {
+      "caso": "4. Sin críticos (sin aprobación)",
+      "tarea": "Priorizá los incidentes abiertos del maestro de sucursales.",
+      "job_id": "1b4c9ffa99ec4c4298823ed383542c62",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": false,
+      "decision": "",
+      "agentes": [
+        "investigador",
+        "analista",
+        "redactor"
+      ],
+      "fuentes_citadas": [
+        "GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1)"
+      ],
+      "acciones_ejecutadas": 0,
+      "segundos": 41.72,
+      "tokens_entrada": 47845,
+      "tokens_salida": 3644,
+      "respuesta": "# INFORME DE PRIORIZACIÓN DE INCIDENTES ABIERTOS — MAESTRO DE SUCURSALES\n\nHay dos incidentes abiertos. **INC-3001 es el prioritario:** severidad alta, SLA vencido hace 112 horas hábiles, con una brecha de 5.3 pp en la regla R-SUC-01. Debe atacarse primero. INC-3003 tiene severidad baja y SLA dentro del plazo.\n\n**Ranking de acción:**\n\n1. **INC-3001** — Sucursales sin geolocalizacion\n   - Severidad: Alta\n   - Regla: R-SUC-01 (Geolocalizacion informada)\n   - Brecha: -5.3 pp (umbral 100%, medición 94.7%)\n   - Registros afectados: 6\n   - SLA: Vencido (112 horas hábiles de exceso)\n   - Política: GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1) — plazo de resolución 2 días hábiles\n   - Responsable: Gerente de Operaciones | Data Steward: Sofia Rios\n\n2. **INC-3003** — Horario de atencion sin cargar\n   - Severidad: Baja\n   - Regla: R-SUC-03 (Horario de atencion informado)\n   - Brecha: -7.8 pp (umbral 99%, medición 91.2%)\n   - Registros afectados: 11\n   - SLA: Dentro del plazo (24 de 120 horas hábiles transcurridas)\n   - Política: GD-POL-001 (01-politica-calidad-de-datos.md, pág. 1) — plazo de resolución 15 días hábiles\n   - Responsable: Gerente de Operaciones | Data Steward: Sofia Rios",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    },
+    {
+      "caso": "5. Glosario (RAG)",
+      "tarea": "¿Qué es un Data Steward según el glosario de Gobierno de Datos y qué responsabilidades tiene?",
+      "job_id": "27ba54efb50d4f8dadc70d69e0c37fd5",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": false,
+      "decision": "",
+      "agentes": [
+        "investigador",
+        "redactor"
+      ],
+      "fuentes_citadas": [
+        "GD-GLO-001 (04-glosario-catalogo-y-clasificacion.md)",
+        "GD-ROL-001 (02-roles-y-responsabilidades.md)"
+      ],
+      "acciones_ejecutadas": 0,
+      "segundos": 24.584,
+      "tokens_entrada": 27450,
+      "tokens_salida": 1603,
+      "respuesta": "# Informe: Data Steward según Gobierno de Datos\n\n## Definición y responsabilidades\n\nSegún el glosario de Gobierno de Datos, **Data Steward es la persona que opera el dominio día a día** (GD-GLO-001, 04-glosario-catalogo-y-clasificacion.md, pág. 1).\n\nEn la Política de Roles y Responsabilidades (GD-ROL-001, 02-roles-y-responsabilidades.md, pág. 1) se detallan sus funciones específicas:\n\n1. Revisar cada mañana las alertas de calidad\n2. Aprobar o rechazar las solicitudes de alta y modificación dentro de 1 día hábil\n3. Publicar el scorecard mensual\n4. Mantener la ficha del dominio en el catálogo de datos\n5. Actuar como primer nivel de escalamiento de incidentes\n\nCada dominio tiene un Data Steward titular y uno suplente, designados por el Data Owner. Todo Data Steward nuevo debe completar un curso de capacitación de 16 horas durante los primeros 30 días desde su designación; hasta completarlo, no puede aprobar altas de forma individual.\n\nEn la matriz de responsabilidades RACI, el Data Steward es **responsable de ejecutar (R)** la resolución de incidentes de calidad y la definición de reglas de calidad, y es **consultado (C)** en la ejecución de controles automáticos. Además, no puede aprobar sus propias solicitudes; en ese caso interviene el suplente (GD-ROL-001, 02-roles-y-responsabilidades.md, pág. 1).",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    },
+    {
+      "caso": "6. Fuera de alcance",
+      "tarea": "¿Cuál es la capital de Francia?",
+      "job_id": "8b5f27c41c20498b87ef00b42cd14ade",
+      "estado": "DONE",
+      "estado_final": "completado",
+      "paso_por_aprobacion": false,
+      "decision": "",
+      "agentes": [
+        "investigador",
+        "redactor"
+      ],
+      "fuentes_citadas": [],
+      "acciones_ejecutadas": 0,
+      "segundos": 11.72,
+      "tokens_entrada": 8753,
+      "tokens_salida": 801,
+      "respuesta": "# INFORME: CONSULTA FUERA DE ALCANCE\n\nLa consulta \"¿Cuál es la capital de Francia?\" está **fuera del alcance** del equipo de Gobierno de Datos de Mercado Austral S.A. Esta pregunta no se refiere a incidentes de calidad de datos, reglas de calidad, políticas de Gobierno de Datos ni a ningún aspecto operativo del Gobierno de Datos de la organización. Se trata de una pregunta de geografía general que no guarda relación con el dominio de este equipo.\n\nNo hay incidentes que reportar.",
+      "error": "",
+      "veredicto": "OK",
+      "observaciones": []
+    }
+  ]
+}
