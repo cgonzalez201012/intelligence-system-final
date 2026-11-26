@@ -60,7 +60,7 @@ TOP_K = 5                          # la consigna pide los 5 mejores
 PESOS_HIBRIDO = (0.5, 0.5)         # (BM25, vectorial): igual peso a lo lexico y a lo semantico
 # Cuantos fragmentos aporta CADA recuperador a la fusion antes de recortar a TOP_K (debe ser >= TOP_K).
 # Con mas candidatos, un fragmento que ambos recuperadores ven (aunque sea en el puesto 7) llega a sumar los dos
-# aportes y sube. Elegido con la grilla de docs/evidencia/ajuste-hibrido.txt (5 vs 10 candidatos; ver README).
+# aportes y sube. Valor elegido al probar 5 contra 10 candidatos sobre las preguntas de las corridas de evidencia.
 CANDIDATOS_POR_RECUPERADOR = 10
 CAMPO_ID_FUSION = "chunk_id"       # con que clave el EnsembleRetriever reconoce el mismo fragmento
 

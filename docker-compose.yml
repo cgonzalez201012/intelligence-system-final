@@ -55,6 +55,7 @@ services:
 
   api:
     build: .
+    restart: unless-stopped
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
@@ -72,6 +73,7 @@ services:
 
   worker:
     build: .
+    restart: unless-stopped   # si el worker se cae (memoria, un corte de Redis al arrancar), Docker lo vuelve a levantar y el barrido de huérfanos sigue corriendo
     command: ["python", "-m", "app.worker"]
     stop_grace_period: 6m   # al apagarlo, deja terminar los jobs en curso: mas que JOB_TIMEOUT_SEGUNDOS (5 min) para que ninguno se corte a medias
     environment:
@@ -85,7 +87,7 @@ services:
       WORKER_CONCURRENCIA: "${WORKER_CONCURRENCIA:-}"
       JOB_TIMEOUT_SEGUNDOS: "${JOB_TIMEOUT_SEGUNDOS:-}"
       TTL_CHECKPOINTS_MINUTOS: "${TTL_CHECKPOINTS_MINUTOS:-}"
-      MODELO_LLM: "${MODELO_LLM:-claude-haiku-4-5}"
+      MODELO_LLM: "${MODELO_LLM:-}"   # vacío: usa el modelo por defecto del código (orquestador/config.py)
       MODELO_SUPERVISOR: "${MODELO_SUPERVISOR:-}"
       MODELO_ESPECIALISTAS: "${MODELO_ESPECIALISTAS:-}"
       MAX_PASOS: "${MAX_PASOS:-}"

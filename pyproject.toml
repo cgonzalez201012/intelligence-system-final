@@ -1,7 +1,7 @@
 [project]
-name = "api-agente-produccion"
+name = "sistema-intelligence-gobierno-de-datos"
 version = "1.0.0"
-description = "API de produccion para el orquestador multi-agente (pre-entrega 7)"
+description = "Sistema Intelligence de grado de produccion: RAG hibrido, agentes con supervisor y API asincrona"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
@@ -11,7 +11,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_unused_ignores = true

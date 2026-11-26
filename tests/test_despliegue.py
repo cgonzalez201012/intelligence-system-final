@@ -120,6 +120,9 @@ def _correr_run_sh(carpeta: Path, env_texto: str | None) -> subprocess.Completed
     docker = falso / "docker"
     docker.write_text('#!/usr/bin/env bash\necho "docker $*" >> "$(dirname "$0")/../llamadas.log"\nexit 0\n')
     docker.chmod(0o755)
+    curl = falso / "curl"   # la API "responde" enseguida: así run.sh llega hasta el final sin red
+    curl.write_text("#!/usr/bin/env bash\nexit 0\n")
+    curl.chmod(0o755)
     entorno = {**os.environ, "PATH": f"{falso}:{os.environ['PATH']}"}
     return subprocess.run(["bash", str(carpeta / "run.sh")], capture_output=True, text=True, env=entorno, timeout=30)
 
@@ -148,7 +151,35 @@ def test_el_env_example_completo_pasa_la_validacion_de_run_sh_y_llega_a_levantar
     llamadas = (tmp_path / "llamadas.log").read_text()
     assert "compose up -d --build" in llamadas  # superó la validación y pidió levantar todo
     assert "Faltan valores" not in resultado.stderr
+    assert resultado.returncode == 0 and "API lista" in resultado.stdout
 
 
 def test_el_readme_y_el_makefile_apuntan_a_la_misma_instruccion() -> None:
     assert "./run.sh" in (RAIZ / "Makefile").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="sin bash")
+def test_si_el_indexador_falla_run_sh_muestra_sus_logs_y_la_ayuda(tmp_path: Path) -> None:
+    """Con el indexador caído, `docker compose up` termina con error: run.sh tiene que explicarlo, no cortarse mudo."""
+    (tmp_path / "bin").mkdir()
+    env = "ANTHROPIC_API_KEY=sk-x\nPINECONE_API_KEY=pcsk_x\nGOOGLE_API_KEY=AIza_x\nINDEX_NAME=rag\n"
+    shutil.copy(RAIZ / "run.sh", tmp_path / "run.sh")
+    (tmp_path / ".env").write_text(env, encoding="utf-8")
+    docker = tmp_path / "bin" / "docker"
+    docker.write_text(
+        '#!/usr/bin/env bash\necho "docker $*" >> "$(dirname "$0")/../llamadas.log"\n'
+        '[[ "$1 $2" == "compose up" ]] && exit 1\n[[ "$2" == "logs" ]] && echo "indexador: error de Pinecone"\nexit 0\n'
+    )
+    docker.chmod(0o755)
+    entorno = {**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}"}
+    resultado = subprocess.run(["bash", str(tmp_path / "run.sh")], capture_output=True, text=True, env=entorno, timeout=30)
+    assert resultado.returncode != 0
+    assert "INDEX_NAME" in resultado.stderr and "indexador: error de Pinecone" in resultado.stdout
+
+
+def test_la_api_y_el_worker_se_reinician_solos_y_el_indexador_no() -> None:
+    import yaml
+
+    servicios = yaml.safe_load((RAIZ / "docker-compose.yml").read_text(encoding="utf-8"))["services"]
+    assert servicios["api"]["restart"] == "unless-stopped" and servicios["worker"]["restart"] == "unless-stopped"
+    assert "restart" not in servicios["indexador"]  # es de un solo uso: reiniciarlo lo haría correr en bucle

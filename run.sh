@@ -47,16 +47,12 @@ fi
 ok "Archivo .env completo"
 
 echo "Construyendo y levantando los servicios (la primera vez tarda unos minutos)..."
-docker compose up -d --build
-
-echo "Esperando a que el indexador deje listo el RAG en Pinecone..."
-indexador="$(docker compose ps -a -q indexador)"
-[[ -n "$indexador" ]] || fallar "No se creó el servicio 'indexador'. Mirá: docker compose logs"
-codigo="$(docker wait "$indexador")"
-if [[ "$codigo" != "0" ]]; then
-  docker compose logs indexador | tail -n 25
-  fallar "El indexador del RAG falló (código $codigo). Revisá PINECONE_API_KEY, GOOGLE_API_KEY e INDEX_NAME en .env."
+# El worker depende del indexador (service_completed_successfully): si el indexador falla, `up` termina con error.
+if ! docker compose up -d --build; then
+  docker compose logs indexador 2>/dev/null | tail -n 25
+  fallar "No se pudo levantar todo. Si el indexador del RAG falló, revisá PINECONE_API_KEY, GOOGLE_API_KEY e INDEX_NAME en .env."
 fi
+
 ok "RAG indexado en Pinecone"
 
 echo "Esperando a que la API responda..."
